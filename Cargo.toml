@@ -9,7 +9,8 @@ name = "hashbench"
 harness = false
 
 [dependencies]
-index = { path = "../Index" }
+index = { git = "https://github.com/gz/Index" }
+indexmap = "1.3.2"
 
 [dev-dependencies]
 core_affinity = { git = "https://github.com/nau/core_affinity_rs", branch = "patch-1" }

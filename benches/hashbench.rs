@@ -6,6 +6,7 @@ use std::time;
 
 use clap::{crate_version, value_t, App, Arg};
 use index;
+use indexmap;
 use rand::{distributions::Distribution, Rng, RngCore, SeedableRng};
 use std::collections::HashMap;
 use zipf::ZipfDistribution;
@@ -58,7 +59,7 @@ fn main() {
                 .short("b")
                 .multiple(true)
                 .takes_value(true)
-                .possible_values(&["std", "nr"])
+                .possible_values(&["std", "index", "indexmap"])
                 .help("What HashMap versions to benchmark."),
         )
         .arg(
@@ -106,10 +107,10 @@ fn main() {
 
     let versions: Vec<&str> = match matches.values_of("compare") {
         Some(iter) => iter.collect(),
-        None => vec!["std", "safe"],
+        None => vec!["std", "index", "indexmap"],
     };
 
-    if versions.contains(&"safe") {
+    if versions.contains(&"index") {
         let mut cpus = topology
             .allocate(ThreadMapping::Sequential, threads, true)
             .into_iter();
@@ -140,7 +141,41 @@ fn main() {
         }));
 
         let tputs: Vec<usize> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
-        stat("safe", tputs);
+        stat("index", tputs);
+    }
+
+    if versions.contains(&"indexmap") {
+        let mut cpus = topology
+            .allocate(ThreadMapping::Sequential, threads, true)
+            .into_iter();
+
+        join.extend((0..threads).into_iter().map(|_| {
+            let b = barrier.clone();
+            let cpu = cpus.next().unwrap().cpu;
+            let dist = dist.clone();
+
+            let thread = thread::spawn(move || {
+                let mut map: Arc<indexmap::IndexMap<u64, u64>> =
+                    Arc::new(indexmap::IndexMap::with_capacity(capacity));
+                for i in 0..capacity {
+                    Arc::make_mut(&mut map).insert(i as u64, (i + 1) as u64);
+                }
+                pin_thread(cpu);
+                let start = time::Instant::now();
+                let end = start + time::Duration::from_secs(2);
+                drive(map.clone(), end, write_ratio, span, &dist);
+                b.wait();
+
+                let start = time::Instant::now();
+                let end = start + dur;
+                drive(map.clone(), end, write_ratio, span, &dist)
+            });
+
+            thread
+        }));
+
+        let tputs: Vec<usize> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
+        stat("indexmap", tputs);
     }
 
     if versions.contains(&"std") {
@@ -262,6 +297,16 @@ impl Backend for Arc<HashMap<u64, u64>> {
 }
 
 impl Backend for Arc<index::Index<u64, u64>> {
+    fn b_put(&mut self, key: u64, val: u64) {
+        Arc::make_mut(self).insert(key, val);
+    }
+
+    fn b_get(&mut self, key: u64) -> u64 {
+        self.get(&key).map(|v| *v).unwrap()
+    }
+}
+
+impl Backend for Arc<indexmap::IndexMap<u64, u64>> {
     fn b_put(&mut self, key: u64, val: u64) {
         Arc::make_mut(self).insert(key, val);
     }
