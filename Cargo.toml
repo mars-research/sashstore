@@ -1,0 +1,28 @@
+[package]
+name = "sashstore"
+version = "0.1.0"
+authors = ["Gerd Zellweger <gzellweger@vmware.com>"]
+edition = "2018"
+
+[[bench]]
+name = "hashbench"
+harness = false
+
+[dependencies]
+index = { path = "../Index" }
+
+[dev-dependencies]
+core_affinity = { git = "https://github.com/nau/core_affinity_rs", branch = "patch-1" }
+clap = { version = "2", features = ["yaml"] }
+env_logger = "0.6"
+num_cpus = "1.10"
+zipf = "6.0.1"
+rand = { version = "0.7", features = ["small_rng"] }
+hwloc = "0.5.0"
+
+# Add debug symbols on the release build so that we can debug performance issues
+[profile.release]
+debug = true
+
+[profile.bench]
+debug = true
