@@ -7,6 +7,7 @@ use std::time;
 use clap::{crate_version, value_t, App, Arg};
 use index;
 use indexmap;
+use jemalloc_ctl::{epoch, stats};
 use rand::{distributions::Distribution, Rng, RngCore, SeedableRng};
 use std::collections::HashMap;
 use zipf::ZipfDistribution;
@@ -15,6 +16,9 @@ mod utils;
 use utils::pin_thread;
 use utils::topology::{MachineTopology, ThreadMapping};
 use utils::Operation;
+
+#[global_allocator]
+static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn main() {
     let args = std::env::args().filter(|e| e != "--bench");
@@ -59,7 +63,7 @@ fn main() {
                 .short("b")
                 .multiple(true)
                 .takes_value(true)
-                .possible_values(&["std", "index", "indexmap"])
+                .possible_values(&["std", "index", "indexmap", "andreamap"])
                 .help("What HashMap versions to benchmark."),
         )
         .arg(
@@ -71,6 +75,15 @@ fn main() {
                 .default_value("uniform")
                 .help("What key distribution to use."),
         )
+        .arg(
+            Arg::with_name("thread-mapping")
+                .long("thread-mapping")
+                .takes_value(true)
+                .possible_values(&["interleave", "sequential"])
+                .default_value("interleave")
+                .help("Strategy on how to assign threads to cores."),
+        )
+
         .get_matches_from(args);
 
     let threads = value_t!(matches, "threads", usize).unwrap_or_else(|e| e.exit());
@@ -83,19 +96,28 @@ fn main() {
     let span = capacity;
     let dur = time::Duration::from_secs(runtime_sec);
 
-    let stat = |benchmark: &str, results: Vec<usize>| {
-        for (tid, result) in results.into_iter().enumerate() {
+
+    let tm_str = value_t!(matches, "thread-mapping", String).unwrap_or_else(|e| e.exit());
+    let tm = if tm_str == "interleave"{
+        ThreadMapping::Interleave
+    } else {
+        ThreadMapping::Sequential
+    };
+
+    let stat = |benchmark: &str, results: Vec<(usize, usize)>| {
+        for (tid, (ops, mem)) in results.into_iter().enumerate() {
             // if you change this line also change the run.sh benchmark script
-            // benchmark,threads,write_ratio,capacity,dist,tid,total_ops,duration
+            // benchmark,threads,write_ratio,capacity,dist,tid,total_ops,heap_total,duration
             println!(
-                "{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{}",
                 benchmark,
                 threads,
                 write_ratio,
                 span,
                 dist,
                 tid,
-                result,
+                ops,
+                mem,
                 dur.as_secs_f64()
             )
         }
@@ -105,14 +127,14 @@ fn main() {
     let barrier = Arc::new(Barrier::new(threads));
     let mut join = Vec::with_capacity(threads);
 
-    let versions: Vec<&str> = match matches.values_of("compare") {
+    let versions: Vec<&str> = match matches.values_of("benchmark") {
         Some(iter) => iter.collect(),
-        None => vec!["std", "index", "indexmap"],
+        None => vec!["std", "index", "indexmap", "andreamap"],
     };
 
     if versions.contains(&"index") {
         let mut cpus = topology
-            .allocate(ThreadMapping::Sequential, threads, true)
+            .allocate(tm, threads, true)
             .into_iter();
 
         join.extend((0..threads).into_iter().map(|_| {
@@ -121,32 +143,27 @@ fn main() {
             let dist = dist.clone();
 
             let thread = thread::spawn(move || {
+                pin_thread(cpu);
+
                 let mut map: Arc<index::Index<u64, u64>> =
                     Arc::new(index::Index::with_capacity(capacity));
                 for i in 0..capacity {
                     Arc::make_mut(&mut map).insert(i as u64, (i + 1) as u64);
                 }
-                pin_thread(cpu);
-                let start = time::Instant::now();
-                let end = start + time::Duration::from_secs(2);
-                drive(map.clone(), end, write_ratio, span, &dist);
-                b.wait();
 
-                let start = time::Instant::now();
-                let end = start + dur;
-                drive(map.clone(), end, write_ratio, span, &dist)
+                bench(map, b, dur, span, &dist, write_ratio)
             });
 
             thread
         }));
 
-        let tputs: Vec<usize> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
-        stat("index", tputs);
+        let ops_mem: Vec<(usize, usize)> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
+        stat("index", ops_mem);
     }
 
     if versions.contains(&"indexmap") {
         let mut cpus = topology
-            .allocate(ThreadMapping::Sequential, threads, true)
+            .allocate(tm, threads, true)
             .into_iter();
 
         join.extend((0..threads).into_iter().map(|_| {
@@ -155,32 +172,30 @@ fn main() {
             let dist = dist.clone();
 
             let thread = thread::spawn(move || {
+                pin_thread(cpu);
+
                 let mut map: Arc<indexmap::IndexMap<u64, u64>> =
                     Arc::new(indexmap::IndexMap::with_capacity(capacity));
                 for i in 0..capacity {
                     Arc::make_mut(&mut map).insert(i as u64, (i + 1) as u64);
                 }
-                pin_thread(cpu);
-                let start = time::Instant::now();
-                let end = start + time::Duration::from_secs(2);
-                drive(map.clone(), end, write_ratio, span, &dist);
-                b.wait();
 
-                let start = time::Instant::now();
-                let end = start + dur;
-                drive(map.clone(), end, write_ratio, span, &dist)
+
+                bench(map, b, dur, span, &dist, write_ratio)
+                
+
             });
 
             thread
         }));
 
-        let tputs: Vec<usize> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
-        stat("indexmap", tputs);
+        let ops_mem: Vec<(usize, usize)> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
+        stat("indexmap", ops_mem);
     }
 
-    if versions.contains(&"std") {
+    if versions.contains(&"andreamap") {
         let mut cpus = topology
-            .allocate(ThreadMapping::Sequential, threads, true)
+            .allocate(tm, threads, true)
             .into_iter();
 
         join.extend((0..threads).into_iter().map(|_| {
@@ -189,25 +204,49 @@ fn main() {
             let dist = dist.clone();
 
             let thread = thread::spawn(move || {
+                pin_thread(cpu);
+
+                let mut map: Arc<sashstore::ResizingHashMap<u64>> =
+                    Arc::new(sashstore::ResizingHashMap::new(capacity));
+                for i in 0..capacity {
+                    Arc::make_mut(&mut map).insert(i as u64, (i + 1) as u64);
+                }
+
+                bench(map, b, dur, span, &dist, write_ratio)
+            });
+
+            thread
+        }));
+
+        let ops_mem: Vec<(usize, usize)> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
+        stat("andreamap", ops_mem);
+    }
+
+    if versions.contains(&"std") {
+        let mut cpus = topology
+            .allocate(tm, threads, true)
+            .into_iter();
+
+        join.extend((0..threads).into_iter().map(|_| {
+            let b = barrier.clone();
+            let cpu = cpus.next().unwrap().cpu;
+            let dist = dist.clone();
+
+            let thread = thread::spawn(move || {
+                pin_thread(cpu);
+
                 let mut map: Arc<HashMap<u64, u64>> = Arc::new(HashMap::with_capacity(capacity));
                 for i in 0..capacity {
                     Arc::make_mut(&mut map).insert(i as u64, (i + 1) as u64);
                 }
-                pin_thread(cpu);
-                let start = time::Instant::now();
-                let end = start + time::Duration::from_secs(2);
-                drive(map.clone(), end, write_ratio, span, &dist);
-                b.wait();
 
-                let start = time::Instant::now();
-                let end = start + dur;
-                drive(map.clone(), end, write_ratio, span, &dist)
+                bench(map, b, dur, span, &dist, write_ratio)
             });
             thread
         }));
 
-        let tputs: Vec<usize> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
-        stat("hashbrown", tputs);
+        let ops_mem: Vec<(usize, usize)> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
+        stat("hashbrown", ops_mem);
     }
 }
 
@@ -245,6 +284,39 @@ fn generate_operation(
     } else {
         Operation::ReadOperation(OpRd::Get(id))
     }
+}
+
+fn bench<B: Backend + Clone>(
+    map: B,
+    b: Arc<Barrier>,
+    dur: std::time::Duration,
+    span: usize,
+    dist: &String,
+    write_ratio: usize,
+) -> (usize, usize)
+where
+    B: Backend,
+{
+    b.wait();
+    // Warmup
+    let start = time::Instant::now();
+    let end = start + time::Duration::from_secs(2);
+    drive(map.clone(), end, write_ratio, span, &dist);
+    let map = map.clone();
+
+
+    b.wait();
+    // Benchmark
+    let start = time::Instant::now();
+    let end = start + dur;
+
+    let ops = drive(map, end, write_ratio, span, &dist);
+
+    let _e = epoch::mib().unwrap();
+    let allocated = stats::allocated::mib().unwrap();
+
+    (ops, allocated.read().unwrap())
+
 }
 
 fn drive<B: Backend>(
@@ -313,5 +385,15 @@ impl Backend for Arc<indexmap::IndexMap<u64, u64>> {
 
     fn b_get(&mut self, key: u64) -> u64 {
         self.get(&key).map(|v| *v).unwrap()
+    }
+}
+
+impl Backend for Arc<sashstore::ResizingHashMap<u64>> {
+    fn b_put(&mut self, key: u64, val: u64) {
+        Arc::make_mut(self).insert(key, val);
+    }
+
+    fn b_get(&mut self, key: u64) -> u64 {
+        self.get(key).map(|v| *v).unwrap()
     }
 }

@@ -24,20 +24,20 @@ def plot_scalability(filename, df):
         {'total_ops': 'sum', 'tid': 'count', 'duration': 'max'})
     benchmark['tps'] = (benchmark['total_ops'] /
                         (benchmark['duration'])).fillna(0.0).astype(int)
-    benchmark['label'] = benchmark['benchmark'] + \
-        " " + benchmark['write_ratio'].astype(str)
+    benchmark['label'] = benchmark['benchmark'] #+ \
+      #  " " + benchmark['write_ratio'].astype(str)
+    benchmark['wr'] = "wr=" + benchmark['write_ratio'].astype(str)
+    benchmark.to_csv(r'processed.csv', index = False)
 
-    print(benchmark)
-    p = ggplot(data=benchmark, mapping=aes(x='threads', y='tps', ymin=0, xmax=12, color='label', group='write_ratio')) + \
+    p = ggplot(data=benchmark, mapping=aes(x='threads', y='tps', ymin=0, xmax=12, color='label', group='wr')) + \
         labs(y="Throughput [Melems/s]", x="# Threads") + \
         theme(legend_position='top', legend_title=element_blank()) + \
         scale_y_continuous(labels=lambda lst: ["{:,.2f}".format(x / 1_000_000) for x in lst]) + \
         geom_point() + \
         geom_line() + \
-        facet_grid(["dist", "."], scales="free_y")
-
-    p.save("{}-throughput.png".format(filename), dpi=300)
-    p.save("{}-throughput.pdf".format(filename), dpi=300)
+        facet_grid(["dist", "wr"], scales="free_y")
+    p.save("{}-throughput.png".format(filename), dpi=400, width=25, height=20)
+    p.save("{}-throughput.pdf".format(filename), dpi=400)
 
 
 def parse_results(path):
