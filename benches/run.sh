@@ -12,7 +12,7 @@ RUNTIME=10
 
 declare -a benchmarks=("andreamap" "std" "index" "indexmap")
 declare -a distributions=("uniform" "skewed")
-declare -a write_ratios=("10" "20" "30" "40" "50")
+declare -a write_ratios=("10" "20")
 
 # Maybe: disable dvfs
 # echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor

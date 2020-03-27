@@ -29,15 +29,36 @@ def plot_scalability(filename, df):
     benchmark['wr'] = "wr=" + benchmark['write_ratio'].astype(str)
     benchmark.to_csv(r'processed.csv', index = False)
 
-    p = ggplot(data=benchmark, mapping=aes(x='threads', y='tps', ymin=0, xmax=12, color='label', group='wr')) + \
+    p = ggplot(data=benchmark, mapping=aes(x='threads', y='tps', ymin=0, xmax=12, color='label')) + \
         labs(y="Throughput [Melems/s]", x="# Threads") + \
         theme(legend_position='top', legend_title=element_blank()) + \
         scale_y_continuous(labels=lambda lst: ["{:,.2f}".format(x / 1_000_000) for x in lst]) + \
         geom_point() + \
         geom_line() + \
         facet_grid(["dist", "wr"], scales="free_y")
+
     p.save("{}-throughput.png".format(filename), dpi=400, width=25, height=20)
     p.save("{}-throughput.pdf".format(filename), dpi=400)
+
+def plot_memory(filename, df):
+    "Plots a memory consumption graph for various threads showing the throughput over time"
+    benchmark = df.groupby(['benchmark', 'threads', 'write_ratio', 'capacity', 'dist'], as_index=False).agg(
+        {'total_ops': 'sum', 'tid': 'count', 'duration': 'max', 'heap_total': 'max'})
+    benchmark['heap_mib'] = (benchmark['heap_total'] / (1024*1024*1))
+    benchmark['label'] = benchmark['benchmark']
+    benchmark['wr'] = "wr=" + benchmark['write_ratio'].astype(str)
+
+    p = ggplot(data=benchmark, mapping=aes(x='threads', y='heap_mib', ymin=0, xmax=12, color='label')) + \
+        labs(y="Peak Heap Memory [MiB]", x="# Threads") + \
+        theme(legend_position='top', legend_title=element_blank()) + \
+        scale_y_continuous(labels=lambda lst: ["{:,.2f}".format(x) for x in lst]) + \
+        geom_point() + \
+        geom_line() + \
+        facet_grid(["dist", "wr"], scales="free_y")
+
+    p.save("{}-memory.png".format(filename), dpi=400, width=25, height=20)
+    p.save("{}-memory.pdf".format(filename), dpi=400)
+
 
 
 def parse_results(path):
@@ -58,3 +79,4 @@ if __name__ == '__main__':
     df = parse_results(sys.argv[1])
     print(df)
     plot_scalability(os.path.basename(sys.argv[1]), df)
+    plot_memory(os.path.basename(sys.argv[1]), df)
