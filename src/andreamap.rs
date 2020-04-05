@@ -1,9 +1,10 @@
 // andreamap written by Andrea Lattuada
-// All the magic is in the benches / currently
-// compile with `rustc --edition=2018 --test hashtable.rs`
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use alloc::vec::Vec;
+use core::hash::{Hash, Hasher};
+
+#[allow(deprecated)]
+use core::hash::SipHasher;
 
 pub enum HashMapItem<V> {
     Empty,
@@ -53,7 +54,8 @@ impl<V> FixedSizeHashMap<V> {
     }
 
     fn slot_for_key(&self, key: u64) -> usize {
-        let mut hasher = DefaultHasher::new();
+        #[allow(deprecated)]
+        let mut hasher = SipHasher::new();
         key.hash(&mut hasher);
         let h = hasher.finish();
         (h as usize) % self.storage.len()
@@ -95,7 +97,7 @@ impl<V> FixedSizeHashMap<V> {
         } = &mut self.storage[slot_idx]
         {
             /* return */
-            Some(std::mem::replace(old_value, value))
+            Some(core::mem::replace(old_value, value))
         } else {
             if let HashMapItem::Empty = &self.storage[slot_idx] {
                 self.count += 1;
@@ -119,7 +121,7 @@ impl<V> FixedSizeHashMap<V> {
         match &self.storage[slot_idx] {
             HashMapItem::Entry { .. } => {
                 // non-lexical-lifetime required
-                let entry = std::mem::replace(
+                let entry = core::mem::replace(
                     &mut self.storage[slot_idx],
                     HashMapItem::Tombstone { key: key },
                 );
@@ -233,7 +235,7 @@ impl<V> ResizingHashMap<V> {
         let FixedSizeHashMap {
             storage: old_storage,
             count: _,
-        } = std::mem::replace(&mut self.underlying, FixedSizeHashMap::new(new_size));
+        } = core::mem::replace(&mut self.underlying, FixedSizeHashMap::new(new_size));
         for e in old_storage.into_iter() {
             if let HashMapItem::Entry { key, value } = e {
                 self.underlying.insert(key, value);
@@ -289,12 +291,14 @@ impl<V> ResizingHashMap<V> {
     // if instead we’re willing to give up the standard Iterator trait,
     // the type system is sufficient, and this is necessary for ergonomics,
     // see safe_iter_mut
+    /*
     pub fn iter_mut<'a>(&'a mut self) -> HashMapIterMut<'a, V> {
         HashMapIterMut {
             map: self,
             slot_idx: 0,
         }
     }
+    */
 
     // an unsafe-free, somewhat idiomatic rust iterator with mutable references
     // it can only return a single mutable reference at a time
@@ -398,6 +402,8 @@ impl<'a, V: 'a> Iterator for HashMapIter<'a, V> {
     }
 }
 
+/*
+/// We can't have iterators in a safe hashmap
 pub struct HashMapIterMut<'a, V: 'a> {
     map: &'a mut ResizingHashMap<V>,
     slot_idx: usize,
@@ -422,7 +428,7 @@ impl<'a, V: 'a> Iterator for HashMapIterMut<'a, V> {
         }
         return None;
     }
-}
+}*/
 
 pub struct HashMapIterOneMut<'a, V: 'a> {
     map: &'a mut ResizingHashMap<V>,
@@ -467,7 +473,7 @@ pub struct VeribetrfsHashMapIter<'a, V> {
     next: Option<(u64, &'a V)>,
 }
 
-impl<'a, V> std::ops::Deref for VeribetrfsHashMapIter<'a, V> {
+impl<'a, V> core::ops::Deref for VeribetrfsHashMapIter<'a, V> {
     type Target = Option<(u64, &'a V)>;
 
     fn deref(&self) -> &Self::Target {
@@ -544,7 +550,7 @@ mod resizing_hash_map_test {
         }
 
         let mut v_iterator = rhm.veribetrfs_iter_start();
-        use std::ops::Deref;
+        use core::ops::Deref;
         let mut count = 0;
         while let Some((k, ref v)) = v_iterator.deref() {
             count += 1;
