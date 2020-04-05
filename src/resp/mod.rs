@@ -2,7 +2,6 @@
 //! https://github.com/iorust/resp written by Qing Yan <admin@zensh.com>
 //!
 //! resp is released under license: MIT/Apache-2.0
-
 pub mod serialize;
 pub mod value;
 

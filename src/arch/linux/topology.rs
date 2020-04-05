@@ -121,7 +121,6 @@ impl MachineTopology {
     }
 
     pub fn allocate(&self, strategy: NumaTopology, how_many: usize, use_ht: bool) -> Vec<CpuInfo> {
-        let v: Vec<CpuInfo> = Vec::with_capacity(how_many);
         let mut cpus = self.data.clone();
 
         if !use_ht {

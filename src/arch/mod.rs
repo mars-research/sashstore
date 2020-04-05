@@ -15,7 +15,6 @@ pub mod arch;
 #[path = "redshift/mod.rs"]
 pub mod redshift_compile_check;
 
-pub type Socket = usize;
 pub type CpuId = usize;
 pub type ThreadId = usize;
 

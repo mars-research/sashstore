@@ -1,5 +1,5 @@
 //! RESP Value
-
+#![allow(unused)]
 use super::serialize::encode;
 use alloc::string::String;
 use alloc::vec::Vec;

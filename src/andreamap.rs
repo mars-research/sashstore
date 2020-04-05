@@ -1,5 +1,5 @@
 // andreamap written by Andrea Lattuada
-
+#![allow(unused)]
 use alloc::vec::Vec;
 use core::hash::{Hash, Hasher};
 

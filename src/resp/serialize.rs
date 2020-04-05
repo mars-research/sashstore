@@ -1,4 +1,5 @@
 //! RESP serialize
+#![allow(unused)]
 
 use alloc::collections::VecDeque;
 use alloc::string::String;
@@ -222,7 +223,7 @@ impl Decoder {
                 }
                 Ok(Value::Array(array))
             }
-            prefix => Err(DecodeError::InvalidType),
+            _prefix => Err(DecodeError::InvalidType),
         }
     }
 }
@@ -234,11 +235,11 @@ fn is_crlf(a: u8, b: u8) -> bool {
 
 #[inline]
 fn parse_string(bytes: &[u8]) -> Result<String, DecodeError> {
-    String::from_utf8(bytes.to_vec()).map_err(|err| DecodeError::InvalidData)
+    String::from_utf8(bytes.to_vec()).map_err(|_err| DecodeError::InvalidData)
 }
 
 #[inline]
 fn parse_integer(bytes: &[u8]) -> Result<i64, DecodeError> {
     let str_integer = parse_string(bytes)?;
-    (str_integer.parse::<i64>()).map_err(|err| DecodeError::InvalidData)
+    (str_integer.parse::<i64>()).map_err(|_err| DecodeError::InvalidData)
 }
