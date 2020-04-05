@@ -22,6 +22,7 @@ pub struct SashStore {
 }
 
 impl SashStore {
+    /// Initialize a new SashStore instance.
     pub fn with_capacity(cap: usize) -> Self {
         SashStore {
             map: ResizingHashMap::new(cap),

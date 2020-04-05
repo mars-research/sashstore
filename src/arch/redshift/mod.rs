@@ -31,6 +31,11 @@ impl PlatformSupport for Platform {
         }
     }
 
+    /// Spawn a thread that executes `f` on core id `on_core`.
+    /// The `on_core` parameter will be one of the elements
+    /// that has been returned by `allocate_cores`.
+    ///
+    /// Returns ThreadId for the newly spawned thread.
     fn spawn<F>(&mut self, _f: F, _on_core: CpuId) -> ThreadId
     where
         F: FnOnce() -> ThreadId,
@@ -39,11 +44,18 @@ impl PlatformSupport for Platform {
         unimplemented!("spawn")
     }
 
+    /// Waits until the thread identified by `tid` is done.
     fn join(&mut self, _tid: ThreadId) {
         unimplemented!("join")
     }
 }
 
+/// The per-core server loop it's called on every spawned thread.
+///
+/// 1. It should open a connection on port `cmd.port` + `tid`
+/// 2. Listen for incoming messages
+/// 3. Give message to `SashStore::handle_network_request`
+/// 4. Send result of `SashStore::handle_network_request` back to client
 #[allow(unused)]
 pub fn server_loop(core: CpuId, tid: ThreadId, config: &CmdArgs, kvstore: &mut SashStore) {
     unimplemented!("server_loop")
