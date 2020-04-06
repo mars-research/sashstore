@@ -12,24 +12,22 @@ use alloc::collections::VecDeque;
 
 use log::trace;
 
-mod andreamap;
+mod indexmap;
 mod arch;
 mod resp;
-
-use andreamap::ResizingHashMap;
 
 use arch::PlatformSupport;
 use resp::{serialize::encode_with_buf, serialize::Decoder, value::Value};
 
 pub struct SashStore {
-    map: ResizingHashMap<String>,
+    map: indexmap::Index<u64, String>,
 }
 
 impl SashStore {
     /// Initialize a new SashStore instance.
     fn with_capacity(cap: usize) -> Self {
         SashStore {
-            map: ResizingHashMap::new(cap),
+            map: indexmap::Index::with_capacity(cap),
         }
     }
 
@@ -59,7 +57,7 @@ impl SashStore {
                                 match key.trim_start_matches("key:").parse::<u64>() {
                                     Ok(num) => {
                                         trace!("Execute .get for {}", num);
-                                        let r = self.map.get(num);
+                                        let r = self.map.get(&num);
                                         r.map_or(Value::Null, |v| {
                                             Value::Array(vec![Value::String(v.clone())])
                                         })

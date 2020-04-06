@@ -63,7 +63,7 @@ fn main() {
                 .short("b")
                 .multiple(true)
                 .takes_value(true)
-                .possible_values(&["std", "index", "indexmap", "andreamap"])
+                .possible_values(&["std", "index", "indexmap"])
                 .help("What HashMap versions to benchmark."),
         )
         .arg(
@@ -127,7 +127,7 @@ fn main() {
 
     let versions: Vec<&str> = match matches.values_of("benchmark") {
         Some(iter) => iter.collect(),
-        None => vec!["std", "index", "indexmap", "andreamap"],
+        None => vec!["std", "index", "indexmap"],
     };
 
     if versions.contains(&"index") {
@@ -182,33 +182,6 @@ fn main() {
 
         let ops_mem: Vec<(usize, usize)> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
         stat("indexmap", ops_mem);
-    }
-
-    if versions.contains(&"andreamap") {
-        let mut cpus = topology.allocate(tm, threads, true).into_iter();
-
-        join.extend((0..threads).into_iter().map(|_| {
-            let b = barrier.clone();
-            let cpu = cpus.next().unwrap().cpu;
-            let dist = dist.clone();
-
-            let thread = thread::spawn(move || {
-                pin_thread(cpu);
-
-                let mut map: Arc<sashstore::andreamap::ResizingHashMap<u64>> =
-                    Arc::new(sashstore::andreamap::ResizingHashMap::new(capacity));
-                for i in 0..capacity {
-                    Arc::make_mut(&mut map).insert(i as u64, (i + 1) as u64);
-                }
-
-                bench(map, b, dur, span, &dist, write_ratio)
-            });
-
-            thread
-        }));
-
-        let ops_mem: Vec<(usize, usize)> = join.drain(..).map(|jh| jh.join().unwrap()).collect();
-        stat("andreamap", ops_mem);
     }
 
     if versions.contains(&"std") {
@@ -370,15 +343,5 @@ impl Backend for Arc<indexmap::IndexMap<u64, u64>> {
 
     fn b_get(&mut self, key: u64) -> u64 {
         self.get(&key).map(|v| *v).unwrap()
-    }
-}
-
-impl Backend for Arc<sashstore::andreamap::ResizingHashMap<u64>> {
-    fn b_put(&mut self, key: u64, val: u64) {
-        Arc::make_mut(self).insert(key, val);
-    }
-
-    fn b_get(&mut self, key: u64) -> u64 {
-        self.get(key).map(|v| *v).unwrap()
     }
 }
