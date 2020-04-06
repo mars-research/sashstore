@@ -52,8 +52,8 @@ set,1,50045.04,vma,linux,1
 get,1,52579.00,vma,linux,1
 set,1,116049.67,vma,vma,1
 get,1,118008.02,vma,vma,1
-set,50,138217.00,linux,linux,1
-get,50,142166.62,linux,linux,1
+set,50,119274.81,linux,linux,1
+get,50,122144.86,linux,linux,1
 set,50,381242.88,vma,vma,1
 get,50,379794.94,vma,vma,1
 set,50,1165501.25,linux,linux,29
