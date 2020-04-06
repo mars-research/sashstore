@@ -83,7 +83,6 @@ fn main() {
                 .default_value("interleave")
                 .help("Strategy on how to assign threads to cores."),
         )
-
         .get_matches_from(args);
 
     let threads = value_t!(matches, "threads", usize).unwrap_or_else(|e| e.exit());
@@ -96,9 +95,8 @@ fn main() {
     let span = capacity;
     let dur = time::Duration::from_secs(runtime_sec);
 
-
     let tm_str = value_t!(matches, "thread-mapping", String).unwrap_or_else(|e| e.exit());
-    let tm = if tm_str == "interleave"{
+    let tm = if tm_str == "interleave" {
         ThreadMapping::Interleave
     } else {
         ThreadMapping::Sequential
@@ -133,9 +131,7 @@ fn main() {
     };
 
     if versions.contains(&"index") {
-        let mut cpus = topology
-            .allocate(tm, threads, true)
-            .into_iter();
+        let mut cpus = topology.allocate(tm, threads, true).into_iter();
 
         join.extend((0..threads).into_iter().map(|_| {
             let b = barrier.clone();
@@ -162,9 +158,7 @@ fn main() {
     }
 
     if versions.contains(&"indexmap") {
-        let mut cpus = topology
-            .allocate(tm, threads, true)
-            .into_iter();
+        let mut cpus = topology.allocate(tm, threads, true).into_iter();
 
         join.extend((0..threads).into_iter().map(|_| {
             let b = barrier.clone();
@@ -180,10 +174,7 @@ fn main() {
                     Arc::make_mut(&mut map).insert(i as u64, (i + 1) as u64);
                 }
 
-
                 bench(map, b, dur, span, &dist, write_ratio)
-                
-
             });
 
             thread
@@ -194,9 +185,7 @@ fn main() {
     }
 
     if versions.contains(&"andreamap") {
-        let mut cpus = topology
-            .allocate(tm, threads, true)
-            .into_iter();
+        let mut cpus = topology.allocate(tm, threads, true).into_iter();
 
         join.extend((0..threads).into_iter().map(|_| {
             let b = barrier.clone();
@@ -206,8 +195,8 @@ fn main() {
             let thread = thread::spawn(move || {
                 pin_thread(cpu);
 
-                let mut map: Arc<sashstore::ResizingHashMap<u64>> =
-                    Arc::new(sashstore::ResizingHashMap::new(capacity));
+                let mut map: Arc<sashstore::andreamap::ResizingHashMap<u64>> =
+                    Arc::new(sashstore::andreamap::ResizingHashMap::new(capacity));
                 for i in 0..capacity {
                     Arc::make_mut(&mut map).insert(i as u64, (i + 1) as u64);
                 }
@@ -223,9 +212,7 @@ fn main() {
     }
 
     if versions.contains(&"std") {
-        let mut cpus = topology
-            .allocate(tm, threads, true)
-            .into_iter();
+        let mut cpus = topology.allocate(tm, threads, true).into_iter();
 
         join.extend((0..threads).into_iter().map(|_| {
             let b = barrier.clone();
@@ -304,7 +291,6 @@ where
     drive(map.clone(), end, write_ratio, span, &dist);
     let map = map.clone();
 
-
     b.wait();
     // Benchmark
     let start = time::Instant::now();
@@ -316,7 +302,6 @@ where
     let allocated = stats::allocated::mib().unwrap();
 
     (ops, allocated.read().unwrap())
-
 }
 
 fn drive<B: Backend>(
@@ -388,7 +373,7 @@ impl Backend for Arc<indexmap::IndexMap<u64, u64>> {
     }
 }
 
-impl Backend for Arc<sashstore::ResizingHashMap<u64>> {
+impl Backend for Arc<sashstore::andreamap::ResizingHashMap<u64>> {
     fn b_put(&mut self, key: u64, val: u64) {
         Arc::make_mut(self).insert(key, val);
     }

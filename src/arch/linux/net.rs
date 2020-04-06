@@ -65,6 +65,11 @@ pub fn server_loop(core: CpuId, tid: ThreadId, config: &CmdArgs, kvstore: &mut S
                 // Throw away zeroes at the end of the buffer:
                 recv_buf.truncate(msg.bytes);
 
+                trace!(
+                    "recv_buf = {:?}",
+                    recv_buf.iter().map(|c| *c as char).collect::<Vec<char>>()
+                );
+
                 let send_buf = kvstore.handle_network_request(recv_buf);
                 let sent =
                     match socket::send(raw_fd, &send_buf.as_slice(), socket::MsgFlags::empty()) {
@@ -103,7 +108,11 @@ impl AsRawFd for Connection {
 /// Create a single, TCP or UDP socket
 pub fn make_socket(config: &CmdArgs) -> Socket {
     let socket = match config.transport {
-        Transport::Tcp => Socket::new(Domain::ipv4(), Type::stream(), None),
+        Transport::Tcp => Socket::new(
+            Domain::ipv4(),
+            Type::stream(),
+            Some(socket2::Protocol::tcp()),
+        ),
         Transport::Udp => Socket::new(Domain::ipv4(), Type::dgram(), None),
     }
     .expect("Can't create socket");
@@ -114,6 +123,7 @@ pub fn make_socket(config: &CmdArgs) -> Socket {
     socket
         .set_reuse_address(true)
         .expect("Can't set reuse addr mode");
+
     socket
 }
 
@@ -132,6 +142,7 @@ fn connect(tid: ThreadId, config: &CmdArgs) -> Vec<Connection> {
 
             let listener = socket.into_tcp_listener();
             for _incoming in 0..config.tcp_connections_per_port {
+                info!("Waiting for connection...");
                 let (stream, addr) = listener.accept().expect("Waiting for incoming connection");
                 info!("Incoming connection from {}", addr);
                 stream

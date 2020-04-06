@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Gerd Zellweger <gzellweger@vmware.com>"]
 edition = "2018"
 
+
 [[bench]]
 name = "hashbench"
 harness = false
@@ -23,7 +24,6 @@ mio = "0.6"
 byteorder = "*"
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-env_logger = "0.6"
 zipf = "6.0.1"
 rand = { version = "0.7", features = ["small_rng"] }
 index = { git = "https://github.com/gz/Index" }

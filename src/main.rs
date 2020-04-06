@@ -1,9 +1,13 @@
 //! A safe key--value store (sashstore)
-
 #![forbid(unsafe_code)]
+#![feature(test)]
 #![cfg_attr(all(target_os = "redshift"), no_std)]
 
 extern crate alloc;
+
+#[cfg(test)]
+extern crate test;
+
 use alloc::collections::VecDeque;
 
 use log::trace;
@@ -23,7 +27,7 @@ pub struct SashStore {
 
 impl SashStore {
     /// Initialize a new SashStore instance.
-    pub fn with_capacity(cap: usize) -> Self {
+    fn with_capacity(cap: usize) -> Self {
         SashStore {
             map: ResizingHashMap::new(cap),
         }
@@ -123,5 +127,41 @@ fn main() {
     // Wait till server is done (it's never done, just use Ctrl+c)
     for tid in tids {
         platform.join(tid);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test::Bencher;
+
+    const SET_CMD_CHAR: [char; 50] = [
+        '*', '3', '\r', '\n', '$', '3', '\r', '\n', 'S', 'E', 'T', '\r', '\n', '$', '1', '6', '\r',
+        '\n', 'k', 'e', 'y', ':', '0', '0', '0', '0', '0', '0', '0', '0', '6', '6', '3', '0', '\r',
+        '\n', '$', '8', '\r', '\n', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', '\r', '\n',
+    ];
+
+    const GET_CMD_CHAR: [char; 36] = [
+        '*', '2', '\r', '\n', '$', '3', '\r', '\n', 'G', 'E', 'T', '\r', '\n', '$', '1', '6', '\r',
+        '\n', 'k', 'e', 'y', ':', '0', '0', '0', '0', '0', '0', '0', '0', '4', '9', '8', '2', '\r',
+        '\n',
+    ];
+
+    #[bench]
+    fn bench_set_requests(b: &mut Bencher) {
+        let mut kv = SashStore::with_capacity(10_000);
+        b.iter(|| {
+            let buf: Vec<u8> = SET_CMD_CHAR.iter().map(|c| *c as u8).collect();
+            let _r = kv.handle_network_request(buf);
+        });
+    }
+
+    #[bench]
+    fn bench_get_requests(b: &mut Bencher) {
+        let mut kv = SashStore::with_capacity(10_000);
+        b.iter(|| {
+            let buf: Vec<u8> = GET_CMD_CHAR.iter().map(|c| *c as u8).collect();
+            let _r = kv.handle_network_request(buf);
+        });
     }
 }
