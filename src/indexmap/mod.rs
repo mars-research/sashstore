@@ -1,7 +1,9 @@
 //! A very simple but safe hashmap
 //! This code is more or less a direct reuse of https://github.com/HarmedChronogram/Index
-//! which was originally written by https://github.com/HarmedChronogram 
+//! which was originally written by https://github.com/HarmedChronogram
 //! It does not have a license file.
+
+#![allow(unused)] // For now
 
 pub mod hash;
 pub mod iter;
@@ -14,13 +16,11 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::fmt;
 use std::hash::{BuildHasher, Hash};
 
-
 const DEFAULT_MAX_LOAD: f64 = 0.7;
 const DEFAULT_GROWTH_POLICY: f64 = 2.0;
-const DEFAULT_PROBING: fn(usize, usize) -> usize = |hash, i| hash + i + i*i;
+const DEFAULT_PROBING: fn(usize, usize) -> usize = |hash, i| hash + i + i * i;
 
 const DEFAULT_INITIAL_CAPACITY: usize = 1; // not handling zero sized
-
 
 /// Alias for handling buckets.
 pub type Bucket<K, V> = Option<RefCell<(K, V)>>;
@@ -28,28 +28,27 @@ pub type Bucket<K, V> = Option<RefCell<(K, V)>>;
 /// Alias for handling results of a lookup with the `find` method.
 type Find<'a, K, V> = (Option<&'a RefCell<(K, V)>>, Option<usize>);
 
-
 /// Parameters needed in the configuration
 /// of an [`Index`] hash table.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use std::collections::hash_map::RandomState;
 /// use index::{Index, Parameters};
-/// 
+///
 /// let params = Parameters {
 ///     max_load: 0.7,
 ///     growth_policy: 2.0,
 ///     hasher_builder: RandomState::new(),
 ///     probe: |hash, i| (hash as f64 + (i as f64 / 2.0) + ((i*i) as f64 / 2.0)) as usize,
 /// };
-/// 
+///
 /// let mut index = Index::with_capacity_and_parameters(10, params);
-/// 
+///
 /// index.insert("key", "value");
 /// ```
-/// 
+///
 /// [`Index`]: struct.Index.html
 #[derive(Debug, Clone)]
 pub struct Parameters<S> {
@@ -60,7 +59,7 @@ pub struct Parameters<S> {
     pub growth_policy: f64,
 
     /// Hasher builder (see [`BuildHasher`]). Default is [`IndexHasherBuilder`]
-    /// 
+    ///
     /// [`IndexHasherBuilder`]: hash/struct.IndexHasherBuilder.html
     /// [`BuildHasher`]: https://doc.rust-lang.org/std/hash/trait.BuildHasher.html
     pub hasher_builder: S,
@@ -69,30 +68,29 @@ pub struct Parameters<S> {
     pub probe: fn(hash: usize, i: usize) -> usize,
 }
 
-
 /// Simple implementation of a hash table using safe-rust.
-/// 
+///
 /// The collisions are resolved through open adressing with
 /// quadratic probing (although it is possible to use linear probing or other types
 /// when specifying parameters).
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use index::Index;
-/// 
+///
 /// let mut index = Index::new();
-/// 
+///
 /// assert_eq!(index.len(), 0);
 /// assert_eq!(index.capacity(), 1);
-/// 
+///
 /// index.insert("salutation", "Hello, world!");
 /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
 /// index.insert("did you know ?", "Rust is kinda cool guys !");
 /// index.insert("key", "value");
-/// 
+///
 /// println!("{}", index.get("salutation").unwrap());
-/// 
+///
 /// assert_eq!(index.len(), 4);
 /// assert_eq!(index.capacity(), 8);
 /// ```
@@ -111,10 +109,10 @@ where
     /// Creates an empty `Index` with default initial capacity and default parameters.
     ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<String, Vec<i32>> = Index::new();
     /// ```
     pub fn new() -> Index<K, V, IndexHasherBuilder> {
@@ -124,10 +122,10 @@ where
     /// Creates an empty `Index` with specified capacity and default parameters.
     ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<String, Vec<i32>> = Index::with_capacity(1312);
     /// ```
     pub fn with_capacity(capacity: usize) -> Index<K, V, IndexHasherBuilder> {
@@ -144,16 +142,15 @@ where
 }
 
 impl<K, V, S> Index<K, V, S> {
-
     /// Returns the maximum load factor accepted before the table is resized.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<String, Vec<i32>> = Index::new();
-    /// 
+    ///
     /// assert_eq!(index.max_load(), 0.7); // default max load
     /// ```
     pub fn max_load(&self) -> f64 {
@@ -161,14 +158,14 @@ impl<K, V, S> Index<K, V, S> {
     }
 
     /// Returns the ratio by which the table's capacity is grown.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<String, Vec<i32>> = Index::new();
-    /// 
+    ///
     /// assert_eq!(index.growth_policy(), 2.0); // default growth policy
     /// ```
     pub fn growth_policy(&self) -> f64 {
@@ -176,16 +173,16 @@ impl<K, V, S> Index<K, V, S> {
     }
 
     /// Returns a reference to the hasher builder used in the `Index`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
     /// use index::hash::IndexHasherBuilder;
     /// use std::any::{Any, TypeId};
-    /// 
+    ///
     /// let mut index: Index<String, Vec<i32>> = Index::new();
-    /// 
+    ///
     /// assert_eq!(index.hasher().type_id(), TypeId::of::<IndexHasherBuilder>()) // default hasher builder
     /// ```
     pub fn hasher(&self) -> &S {
@@ -193,32 +190,31 @@ impl<K, V, S> Index<K, V, S> {
     }
 
     /// Returns the probing function pointer of the `Index`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<String, Vec<i32>> = Index::new();
-    /// 
+    ///
     /// let p = |h: usize, i: usize| h + i + i*i; // default prober
-    /// 
+    ///
     /// assert_eq!((index.probe())(45, 2), p(45, 2));
     /// ```
     pub fn probe(&self) -> fn(usize, usize) -> usize {
         self.params.probe
     }
 
-
     /// Returns the capacity of the `Index`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<&str, &str> = Index::with_capacity(6);
-    /// 
+    ///
     /// assert_eq!(index.len(), 0);
     /// assert_eq!(index.capacity(), 6);
     /// ```
@@ -227,18 +223,18 @@ impl<K, V, S> Index<K, V, S> {
     }
 
     /// Returns the number of elements in the `Index`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<&str, i32> = Index::with_capacity(6);
-    /// 
+    ///
     /// index.insert("one", 1);
     /// index.insert("two", 2);
     /// index.insert("three", 3);
-    /// 
+    ///
     /// assert_eq!(index.len(), 3);
     /// assert_eq!(index.capacity(), 6);
     /// ```
@@ -247,14 +243,14 @@ impl<K, V, S> Index<K, V, S> {
     }
 
     /// Returns `true` if the `Index` contains no elements.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<&str, &str> = Index::with_capacity(10);
-    /// 
+    ///
     /// assert!(index.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
@@ -262,18 +258,18 @@ impl<K, V, S> Index<K, V, S> {
     }
 
     /// Returns the current load factor of the `Index`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index: Index<&str, i32> = Index::with_capacity(6);
-    /// 
+    ///
     /// index.insert("one", 1);
     /// index.insert("two", 2);
     /// index.insert("three", 3);
-    /// 
+    ///
     /// assert_eq!(index.load(), 0.5);
     /// ```
     pub fn load(&self) -> f64 {
@@ -281,24 +277,24 @@ impl<K, V, S> Index<K, V, S> {
     }
 
     /// Clear the `Index`, replacing all entries with empty buckets.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
     /// use index::Bucket;
-    /// 
+    ///
     /// let mut index: Index<&str, i32> = Index::with_capacity(6);
-    /// 
+    ///
     /// index.insert("one", 1);
     /// index.insert("two", 2);
     /// index.insert("three", 3);
-    /// 
+    ///
     /// index.clear();
-    /// 
+    ///
     /// assert!(index.get("two").is_none());
     /// assert_eq!(index.len(), 0);
-    /// 
+    ///
     /// ```
     pub fn clear(&mut self) {
         for entry in self.table.iter_mut() {
@@ -307,74 +303,74 @@ impl<K, V, S> Index<K, V, S> {
         self.len = 0;
     }
 
-    /// Returns an iterator over the keys of the `Index`. 
+    /// Returns an iterator over the keys of the `Index`.
     /// The iterator's associated type is `Ref<'a, K>`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// for key in index.keys() {
     ///     println!("key: {:?}", key);
     /// }
-    /// 
+    ///
     /// assert_eq!(index.len(), index.keys().count());
     /// ```
     pub fn keys(&self) -> Keys<K, V> {
         Keys::new(&self.table)
     }
 
-    /// Returns an iterator over the values of the `Index`. 
+    /// Returns an iterator over the values of the `Index`.
     /// The iterator's associated type is `Ref<'a, V>`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// for value in index.values() {
     ///     println!("value: {:?}", value);
     /// }
-    /// 
+    ///
     /// assert_eq!(index.len(), index.values().count());
     /// ```
     pub fn values(&self) -> Values<K, V> {
         Values::new(&self.table)
     }
 
-    /// Returns a mutable iterator over the values of the `Index`. 
+    /// Returns a mutable iterator over the values of the `Index`.
     /// The iterator's associated type is `RefMut<'a, V>`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// for mut value in index.values_mut() {
     ///     *value = "overwritten!";
     /// }
-    /// 
+    ///
     /// assert_eq!(*index.get("ferris").unwrap(), "overwritten!");
-    /// 
+    ///
     /// ```
     pub fn values_mut(&self) -> ValuesMut<K, V> {
         ValuesMut::new(&self.table)
@@ -382,22 +378,22 @@ impl<K, V, S> Index<K, V, S> {
 
     /// Return an iterator over the key-value pairs of the `Index`.
     /// The iterator's associated type is `Ref<'a, (K, V)>`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// for entry in index.iter() {
     ///     println!("key: {:?} => value: {:?}", entry.0, entry.1);
     /// }
-    /// 
+    ///
     /// assert_eq!(index.len(), index.iter().count());
     /// ```
     pub fn iter(&self) -> Iter<K, V> {
@@ -406,22 +402,22 @@ impl<K, V, S> Index<K, V, S> {
 
     /// Return a mutable iterator over the key-value pairs of the `Index`.
     /// The iterator's associated type is `RefMut<'a, (K, V)>`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// for mut entry in index.iter_mut() {
     ///     entry.1 = entry.0.clone();
     /// }
-    /// 
+    ///
     /// assert_eq!(*index.get("ferris").unwrap(), "ferris");
     /// ```
     pub fn iter_mut(&self) -> IterMut<K, V> {
@@ -429,20 +425,20 @@ impl<K, V, S> Index<K, V, S> {
     }
 
     /// Returns iterator taking ownership and moving out the key-value pairs of the `Index`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// let v: Vec<(&str, &str)> = index.drain().collect();
-    /// 
+    ///
     /// assert_eq!(index.len(), 0);
     /// assert_eq!(v.len(), 3);
     /// assert!(v.contains(&("salutation", "Hello, world!")));
@@ -460,32 +456,34 @@ where
     // static
 
     /// Creates an empty `Index` with specified capacity and parameters.
-    /// 
+    ///
     /// See [`Parameters`] for details.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use std::collections::hash_map::RandomState;
     /// use index::{Index, Parameters};
-    /// 
+    ///
     /// let params = Parameters {
     ///     max_load: 0.7,
     ///     growth_policy: 2.0,
     ///     hasher_builder: RandomState::new(),
     ///     probe: |hash, i| (hash as f64 + (i as f64 / 2.0) + ((i*i) as f64 / 2.0)) as usize,
     /// };
-    /// 
+    ///
     /// let mut index = Index::with_capacity_and_parameters(10, params);
-    /// 
+    ///
     /// index.insert("key", "value");
     /// ```
-    /// 
+    ///
     /// [`Parameters`]: struct.Parameters.html
     pub fn with_capacity_and_parameters(capacity: usize, params: Parameters<S>) -> Index<K, V, S> {
-        
-        let capacity = if capacity == 0 { DEFAULT_INITIAL_CAPACITY } else { capacity };
-        
+        let capacity = if capacity == 0 {
+            DEFAULT_INITIAL_CAPACITY
+        } else {
+            capacity
+        };
         let mut index = Index {
             params,
             capacity,
@@ -516,10 +514,7 @@ where
     /// rehash the entries (if the new capacity is to small, the insert operation will grow
     /// the new `Index` automatically).
     fn resize(&mut self, new_capacity: usize) {
-        let mut new_index = Self::with_capacity_and_parameters(
-            new_capacity,
-            self.params.clone(),
-        );
+        let mut new_index = Self::with_capacity_and_parameters(new_capacity, self.params.clone());
 
         for (key, value) in self.drain() {
             new_index.insert(key, value);
@@ -535,7 +530,7 @@ where
     }
 
     /// Searches for an entry according to specified hash and discriminating closure.
-    /// 
+    ///
     /// See alias definition of `Find<'a, K, V>` at the top of this file for more details.
     fn find<F>(&self, hash: usize, f: F) -> Find<K, V>
     where
@@ -554,40 +549,39 @@ where
         (None, None) // found nothing
     }
 
-
     /// Inserts key-value pair in the `Index`.
-    /// 
+    ///
     /// If it encounters an occupied bucket with the same key, it will replace the
     /// entry according to the new value and return the old bucket.
-    /// 
+    ///
     /// The function also verifies before anything else that the load factor is lesser
     /// than the maximum accepted load, if not it will grow the `Index` before proceeding to the insertion.
-    /// 
-    /// If the lookup returns no valid result, the insertion is considered impossible and 
+    ///
+    /// If the lookup returns no valid result, the insertion is considered impossible and
     /// the function will grow the `Index` and retry to insert the pair.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(2);
-    /// 
+    ///
     /// index.insert("key", "value");
-    /// 
+    ///
     /// assert_eq!(*index.get("key").unwrap(), "value");
-    /// 
+    ///
     /// index.insert("key", "new value");
-    /// 
+    ///
     /// assert_eq!(*index.get("key").unwrap(), "new value");
-    /// 
+    ///
     /// assert_eq!(index.len(), 1);
     /// assert_eq!(index.capacity(), 2);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool guys !");
-    /// 
+    ///
     /// assert_eq!(index.len(), 4);
     /// assert_eq!(index.capacity(), 8);
     /// ```
@@ -630,18 +624,18 @@ where
 
     /// Returns a reference to the value associated with the specified key
     /// if the lookup found a match, else it returns `None`.
-    /// 
+    ///
     /// # Example
     ///  
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// assert_eq!(*index.get("salutation").unwrap(), "Hello, world!");
     /// ```
     pub fn get<Q>(&self, key: &Q) -> Option<Ref<V>>
@@ -657,20 +651,20 @@ where
 
     /// Returns a mutable reference to the value associated with the specified key
     /// if the lookup found a match, else it returns `None`.
-    /// 
+    ///
     /// # Example
     ///  
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// *index.get_mut("salutation").unwrap() = "Hello, rust!";
-    /// 
+    ///
     /// assert_eq!(*index.get("salutation").unwrap(), "Hello, rust!");
     /// ```
     pub fn get_mut<Q>(&self, key: &Q) -> Option<RefMut<V>>
@@ -686,18 +680,18 @@ where
 
     /// Returns a reference to the key-value pair associated with the specified key
     /// if the lookup found a match, else it returns `None`.
-    /// 
+    ///
     /// # Example
     ///  
     /// ```
     /// use index::Index;
-    /// 
+    ///
     /// let mut index = Index::with_capacity(10);
-    /// 
+    ///
     /// index.insert("salutation", "Hello, world!");
     /// index.insert("ferris", "https://www.rustacean.net/more-crabby-things/dancing-ferris.gif");
     /// index.insert("did you know ?", "Rust is kinda cool !");
-    /// 
+    ///
     /// assert_eq!(*index.get_pair("did you know ?").unwrap(), ("did you know ?", "Rust is kinda cool !"));
     /// ```
     pub fn get_pair<Q>(&self, key: &Q) -> Option<Ref<(K, V)>>
