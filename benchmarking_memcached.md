@@ -11,18 +11,18 @@ Using `--capacity 5000000`, compile settings LTO and codegen-units=1, jemalloc a
 ```log
 Get Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        58672        58672        56.8       0          7        655        14         6.27       14.30
-Global   13       711049       54696        60.9       0          7        2891       15         7.49       15.39
+Period   1        50615        50615        61.8       0          15       185        17         3.12       17.11
+Global   8        476657       59582        52.5       0          7        1299       14         5.92       14.10
 
 Set Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        6519         6519         6.3        0          8        59         17         4.88       16.91
-Global   13       79006        6077         6.8        0          8        412        18         5.52       17.93
+Period   1        5623         5623         6.9        0          17       565        19         10.53      19.60
+Global   8        52962        6620         5.8        0          8        713        17         6.08       16.60
 
 Total Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        65190        65190        63.1       0          7        655        14         6.86       14.54
-Global   13       790058       60773        67.6       0          7        2891       16         5.70       15.62
+Period   1        56237        56237        68.7       0          15       565        17         5.20       17.35
+Global   8        529621       66202        58.4       0          7        1299       14         6.67       14.33
 ```
 
 More clients: `./clients/memaslap -s 127.0.0.1:6666 -U -S 1s -T1 -c 30`
@@ -30,18 +30,18 @@ More clients: `./clients/memaslap -s 127.0.0.1:6666 -U -S 1s -T1 -c 30`
 ```log
 Get Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        160075       160075       169.0      0          77       449        168        20.91      167.60
-Global   11       1791803      162891       166.1      0          61       872        165        22.16      164.54
+Period   1        171732       171732       182.8      0          65       413        156        24.65      156.06
+Global   8        1409116      176139       178.2      0          50       716        152        24.27      152.10
 
 Set Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        17782        17782        18.8       0          82       440        169        19.53      168.26
-Global   11       199103       18100        18.5       0          61       872        166        24.99      165.73
+Period   1        19083        19083        20.3       0          67       418        157        24.36      156.82
+Global   8        156584       19573        19.8       0          67       708        154        19.88      153.34
 
 Total Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        177856       177856       187.8      0          77       449        168        21.57      167.66
-Global   11       1990910      180991       184.5      0          61       872        165        23.19      164.66
+Period   1        190817       190817       203.1      0          65       418        157        18.02      156.14
+Global   8        1565706      195713       198.0      0          50       716        153        18.05      152.23
 ```
 
 ## memcached
@@ -53,18 +53,18 @@ Running:
 ```log
 Get Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        63743        63743        60.2       0          8        559        13         5.70       13.28
-Global   10       580084       58008        66.1       0          7        887        14         6.47       14.65
+Period   1        70442        70442        67.5       0          7        695        12         4.77       12.03
+Global   6        390208       65034        73.1       0          7        1191       13         4.89       13.06
 
 Set Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        7082         7082         6.7        0          10       68         15         5.44       15.19
-Global   10       64454        6445         7.3        0          9        393        16         8.21       16.38
+Period   1        7827         7827         7.5        0          8        350        13         10.02      13.06
+Global   6        43357        7226         8.1        0          8        421        14         10.78      14.08
 
 Total Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        70825        70825        66.9       0          8        559        13         6.15       13.46
-Global   10       644541       64454        73.5       0          7        887        15         4.63       14.82
+Period   1        78268        78268        75.0       0          7        695        12         5.74       12.13
+Global   6        433567       72261        81.2       0          7        1191       13         5.99       13.16
 ```
 
 More clients: `./clients/memaslap -s 127.0.0.1:6666 -U -S 1s -T1 -c 30`
@@ -72,16 +72,16 @@ More clients: `./clients/memaslap -s 127.0.0.1:6666 -U -S 1s -T1 -c 30`
 ```log
 Get Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        140166       140166       150.7      33086      132      782        192        46.25      187.96
-Global   5        726277       145255       145.4      39451      60       782        185        43.72      181.73
+Period   1        152259       152259       157.1      73519      103      527        176        29.21      175.94
+Global   7        1060143      151449       158.0      177530     29       598        177        32.48      176.40
 
 Set Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        15570        15570        16.7       0          134      703        193        49.59      188.80
-Global   5        80710        16142        16.2       0          54       711        187        45.89      182.91
+Period   1        16918        16918        17.5       0          123      450        178        27.00      176.87
+Global   7        117811       16830        17.6       0          62       610        179        29.87      177.31
 
 Total Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        155732       155732       167.5      33085      132      782        192        47.01      188.04
-Global   5        806991       161398       161.6      39453      54       782        185        44.78      181.84
+Period   1        169175       169175       174.6      73515      103      527        177        23.64      176.03
+Global   7        1177957      168279       175.5      177530     29       610        178        27.48      176.49
 ```
