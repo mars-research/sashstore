@@ -21,14 +21,6 @@ pub fn encode(value: &Value) -> Vec<u8> {
     res
 }
 
-fn u32_to_slice(x: u32) -> [u8; 4] {
-    let b1: u8 = ((x >> 24) & 0xff) as u8;
-    let b2: u8 = ((x >> 16) & 0xff) as u8;
-    let b3: u8 = ((x >> 8) & 0xff) as u8;
-    let b4: u8 = (x & 0xff) as u8;
-    return [b1, b2, b3, b4];
-}
-
 fn slice_to_u32(x: &[u8]) -> u32 {
     let b1: u32 = ((x[0] as u32 >> 24) & 0xff);
     let b2: u32 = ((x[1] as u32 >> 16) & 0xff);
@@ -188,6 +180,9 @@ impl Decoder {
     }
 
     /// It will read buffers from the inner BufReader, and return a Value
+    ///
+    /// Mostly info from here
+    /// https://github.com/memcached/memcached/blob/master/doc/protocol.txt#L199
     pub fn decode(&mut self) -> Result<Value, DecodeError> {
         // The frame header is 8 bytes long, as follows (all values are 16-bit integers
         //     in network byte order, high byte first):
@@ -257,9 +252,6 @@ impl Decoder {
         // parse opcode
         match op {
             b"set " => {
-                // https://github.com/memcached/memcached/blob/master/doc/protocol.txt#L199
-                log::trace!("Set");
-
                 let mut key_buf = Vec::with_capacity(65);
                 self.read_until(' ' as u8, &mut key_buf);
                 key_buf.pop();
@@ -273,11 +265,11 @@ impl Decoder {
 
                 self.skip_until_newline();
 
-                let mut val_buf = Vec::with_capacity(8);
+                let mut val_buf = Vec::with_capacity(1200);
                 self.read_until('\r' as u8, &mut val_buf);
                 val_buf.pop(); // remove \r
-                trace!("got val: {:?}", val_buf);
 
+                trace!("got val: {:?}", val_buf);
                 Ok(Value::Set(request_id, key_buf, flags, val_buf))
             }
             b"get " => {
@@ -287,11 +279,9 @@ impl Decoder {
                 self.read_until(' ' as u8, &mut key_buf);
                 key_buf.pop();
                 key_buf.pop(); // \r ?
+
                 trace!("got key: {:?}", key_buf);
-                //debug_assert_eq!(key_buf.len(), 64, "Sanity check parsing key");
-
                 self.skip_until_newline();
-
                 Ok(Value::Get(request_id, key_buf))
             }
             _ => return Err(DecodeError::InvalidOpCode),

@@ -6,40 +6,23 @@ Running:
 
 `./clients/memaslap -s 127.0.0.1:6666 -U -S 1s -T1 -c 1`
 
-```log
-Get Statistics
-Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        46680        46680        49.0       0          15       660        18         6.53       18.48
-Global   7        330612       47230        48.4       0          14       2980       18         7.21       18.23
-
-Set Statistics
-Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        5186         5186         5.4        0          16       89         22         3.91       22.08
-Global   7        36735        5247         5.4        0          16       9446       22         55.58      21.92
-
-Total Statistics
-Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        51868        51868        54.5       0          15       660        18         7.48       18.81
-Global   7        367350       52478        53.8       0          14       9446       18         19.28      18.57
-```
-
-More optimization in compiler (e.g., lto = true and codegen-units = 1):
+Using `--capacity 5000000`, compile settings LTO and codegen-units=1, jemalloc allocator:
 
 ```log
 Get Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        61564        61564        55.9       0          12       206        13         5.48       13.63
-Global   13       700842       53910        63.9       0          7        1906       15         7.14       15.60
+Period   1        58672        58672        56.8       0          7        655        14         6.27       14.30
+Global   13       711049       54696        60.9       0          7        2891       15         7.49       15.39
 
 Set Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        6841         6841         6.2        0          14       38         17         6.79       17.71
-Global   13       77872        5990         7.1        0          9        16110      20         69.58      19.65
+Period   1        6519         6519         6.3        0          8        59         17         4.88       16.91
+Global   13       79006        6077         6.8        0          8        412        18         5.52       17.93
 
 Total Statistics
 Type     Time(s)  Ops          TPS(ops/s)   Net(M/s)   Get_miss   Min(us)  Max(us)    Avg(us)    Std_dev    Geo_dist  
-Period   1        68407        68407        62.2       0          12       206        14         4.07       13.99
-Global   13       778717       59901        71.0       0          7        16110      16         22.73      15.97
+Period   1        65190        65190        63.1       0          7        655        14         6.86       14.54
+Global   13       790058       60773        67.6       0          7        2891       16         5.70       15.62
 ```
 
 ## memcached

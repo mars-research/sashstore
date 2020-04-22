@@ -22,6 +22,7 @@ core_affinity = { git = "https://github.com/nau/core_affinity_rs", branch = "pat
 socket2 = { version = "0.3", features = ["reuseport"] }
 nix = "0.17"
 mio = "0.6"
+jemallocator = "0.3.2"
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 zipf = "6.0.1"
@@ -29,13 +30,13 @@ rand = { version = "0.7", features = ["small_rng"] }
 index = { git = "https://github.com/gz/Index" }
 indexmap = "1.3.2"
 jemalloc-ctl = "0.3.3"
-jemallocator = "0.3.2"
 
 # Add debug symbols on the release build so that we can debug performance issues
 [profile.release]
 debug = true
-#lto = true
-#codegen-units = 1
+incremental = false
+lto = true
+codegen-units = 1
 
 [profile.bench]
 debug = true
