@@ -4,7 +4,7 @@
 //!
 //! [`Index`]: struct.Index.html
 
-use std::hash::{BuildHasher, Hash, Hasher};
+use core::hash::{BuildHasher, Hash, Hasher};
 
 /// Hashes a `value` using a specified `hasher_builder`.
 ///

@@ -12,6 +12,7 @@ harness = false
 [dependencies]
 log = "0.4"
 
+
 [target.'cfg(target_os = "linux")'.dependencies]
 num_cpus = "1.10"
 hwloc = "0.5.0"
@@ -21,7 +22,6 @@ core_affinity = { git = "https://github.com/nau/core_affinity_rs", branch = "pat
 socket2 = { version = "0.3", features = ["reuseport"] }
 nix = "0.17"
 mio = "0.6"
-byteorder = "*"
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 zipf = "6.0.1"
@@ -34,6 +34,8 @@ jemallocator = "0.3.2"
 # Add debug symbols on the release build so that we can debug performance issues
 [profile.release]
 debug = true
+#lto = true
+#codegen-units = 1
 
 [profile.bench]
 debug = true

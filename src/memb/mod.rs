@@ -12,11 +12,11 @@ pub mod serialize;
 /// Data format description for a parsed packet
 #[derive(Debug, Eq, PartialEq)]
 pub enum Value {
-    Get(Vec<u8>),
-    Set(Vec<u8>, Vec<u8>),
-    Value(Vec<u8>, Vec<u8>, Vec<u8>),
-    Stored,
-    NotStored,
+    Get(u16, Vec<u8>),
+    Set(u16, Vec<u8>, u32, Vec<u8>),
+    Value(u16, Vec<u8>, u32, Vec<u8>),
+    Stored(u16),
+    NotStored(u16),
     NoReply,
 }
 

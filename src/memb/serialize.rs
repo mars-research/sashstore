@@ -21,6 +21,22 @@ pub fn encode(value: &Value) -> Vec<u8> {
     res
 }
 
+fn u32_to_slice(x: u32) -> [u8; 4] {
+    let b1: u8 = ((x >> 24) & 0xff) as u8;
+    let b2: u8 = ((x >> 16) & 0xff) as u8;
+    let b3: u8 = ((x >> 8) & 0xff) as u8;
+    let b4: u8 = (x & 0xff) as u8;
+    return [b1, b2, b3, b4];
+}
+
+fn slice_to_u32(x: &[u8]) -> u32 {
+    let b1: u32 = ((x[0] as u32 >> 24) & 0xff);
+    let b2: u32 = ((x[1] as u32 >> 16) & 0xff);
+    let b3: u32 = ((x[2] as u32 >> 8) & 0xff);
+    let b4: u32 = (x[3] as u32 & 0xff);
+    return b1 | b2 | b3 | b4;
+}
+
 /// Encode return value:
 ///
 /// After sending the command line and the data block the client awaits
@@ -52,21 +68,40 @@ pub fn encode(value: &Value) -> Vec<u8> {
 /// deleted by a client).
 #[inline]
 fn buf_encode(value: &Value, buf: &mut Vec<u8>) {
+    buf.clear();
+
     match value {
-        Value::Get(_) => unreachable!("We shouldn't return that to the clients"),
-        Value::Set(_, _) => unreachable!("We shouldn't return that to the clients"),
-        Value::Value(k, v, flags) => {
-            buf.extend_from_slice("VALUE ".as_bytes());
+        Value::Get(_req_id, _key) => unreachable!("We shouldn't return that to the clients"),
+        Value::Set(req_id, _, _, _) => unreachable!("We shouldn't return that to the clients"),
+        Value::Value(request_id, k, flags, v) => {
+            // Construct UDP header
+            buf.extend_from_slice(&u16::to_be_bytes(*request_id));
+            buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
+            buf.extend_from_slice(&u16::to_be_bytes(1)); // #datagram
+            buf.extend_from_slice(&u16::to_be_bytes(0)); // reserved
+            buf.extend_from_slice(b"VALUE ");
             buf.extend_from_slice(k.as_slice());
             buf.extend_from_slice(" ".as_bytes());
-            buf.extend_from_slice(flags.as_slice());
+            buf.extend_from_slice(format!(" {}", *flags).as_bytes());
             buf.extend_from_slice(format!(" {}\r\n", v.len()).as_bytes());
             buf.extend_from_slice(v.as_slice());
-            buf.extend_from_slice("\r\n".as_bytes());
+            buf.extend_from_slice(b" END\r\n");
         }
-        Value::Stored => buf.extend_from_slice("STORED\r\n".as_bytes()),
-        Value::NotStored => buf.extend_from_slice("NOT_STORED\r\n".as_bytes()),
-        _ => buf.extend_from_slice("NOT_STORED\r\n".as_bytes()),
+        Value::Stored(request_id) => {
+            buf.extend_from_slice(&u16::to_be_bytes(*request_id));
+            buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
+            buf.extend_from_slice(&u16::to_be_bytes(1)); // #datagram
+            buf.extend_from_slice(&u16::to_be_bytes(0)); // reserved
+            buf.extend_from_slice(b"STORED\r\n")
+        }
+        Value::NotStored(request_id) => {
+            buf.extend_from_slice(&u16::to_be_bytes(*request_id));
+            buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
+            buf.extend_from_slice(&u16::to_be_bytes(1)); // #datagram
+            buf.extend_from_slice(&u16::to_be_bytes(0)); // reserved
+            buf.extend_from_slice(b"NOT_STORED\r\n")
+        }
+        _ => unreachable!("Unexpected response"),
     }
 }
 
@@ -154,24 +189,74 @@ impl Decoder {
 
     /// It will read buffers from the inner BufReader, and return a Value
     pub fn decode(&mut self) -> Result<Value, DecodeError> {
-        for _i in 0..8 {
-            // The frame header is 8 bytes long, as follows (all values are 16-bit integers
-            // in network byte order, high byte first):
-            // 0-1 Request ID
-            // 2-3 Sequence number
-            // 4-5 Total number of datagrams in this message
-            // 6-7 Reserved for future use; must be 0
-            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?;
-        }
+        // The frame header is 8 bytes long, as follows (all values are 16-bit integers
+        //     in network byte order, high byte first):
+        //
+        // 0-1 Request ID
+        // 2-3 Sequence number
+        // 4-5 Total number of datagrams in this message
+        // 6-7 Reserved for future use; must be 0
+        //
+        // The request ID is supplied by the client. Typically it will be a
+        // monotonically increasing value starting from a random seed, but the client
+        // is free to use whatever request IDs it likes. The server's response will
+        // contain the same ID as the incoming request. The client uses the request ID
+        // to differentiate between responses to outstanding requests if there are
+        // several pending from the same server; any datagrams with an unknown request
+        // ID are probably delayed responses to an earlier request and should be
+        // discarded.
+        //
+        // The sequence number ranges from 0 to n-1, where n is the total number of
+        // datagrams in the message. The client should concatenate the payloads of the
+        // datagrams for a given response in sequence number order; the resulting byte
+        // stream will contain a complete response in the same format as the TCP
+        // protocol (including terminating \r\n sequences).
+
+        // 0-1 Request ID
+        let mut buf = [
+            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?,
+            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?,
+        ];
+        let request_id = u16::from_be_bytes(buf);
+        // 2-3 Sequence number
+        let mut buf = [
+            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?,
+            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?,
+        ];
+        let sequence_nr = u16::from_be_bytes(buf);
+        debug_assert_eq!(sequence_nr, 0, "No multi-packet means this is 0");
+
+        // 4-5 Total number of datagrams in this message
+        let mut buf = [
+            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?,
+            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?,
+        ];
+        let datagram_total = u16::from_be_bytes(buf);
+        debug_assert_eq!(datagram_total, 1, "Don't support multi-packet");
+
+        // 6-7 Reserved for future use; must be 0
+        let mut buf = [
+            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?,
+            self.reader.pop_front().ok_or(DecodeError::UnexpectedEof)?,
+        ];
+        let reserved = u16::from_be_bytes(buf);
+        //debug_assert_eq!(reserved, 0);
+
+        log::info!(
+            "request_id = {} sequence_nr = {} datagram_total= {} reserved = {}",
+            request_id,
+            sequence_nr,
+            datagram_total,
+            reserved
+        );
 
         let mut buffer = Vec::with_capacity(12);
         self.read_until(' ' as u8, &mut buffer);
-        let op =
-            core::str::from_utf8(&buffer.as_slice()).map_err(|_e| DecodeError::InvalidOpCode)?;
+        let op = buffer.as_slice();
 
         // parse opcode
         match op {
-            "set " => {
+            b"set " => {
                 // https://github.com/memcached/memcached/blob/master/doc/protocol.txt#L199
                 log::trace!("Set");
 
@@ -179,7 +264,12 @@ impl Decoder {
                 self.read_until(' ' as u8, &mut key_buf);
                 key_buf.pop();
                 trace!("got key: {:?}", key_buf);
-                debug_assert_eq!(key_buf.len(), 64, "Sanity check parsing key");
+
+                let mut flag_buf = Vec::with_capacity(4);
+                self.read_until(' ' as u8, &mut flag_buf);
+                debug_assert!(flag_buf.len() <= 4);
+                flag_buf.resize(4, 0);
+                let flags = slice_to_u32(flag_buf.as_slice());
 
                 self.skip_until_newline();
 
@@ -187,22 +277,22 @@ impl Decoder {
                 self.read_until('\r' as u8, &mut val_buf);
                 val_buf.pop(); // remove \r
                 trace!("got val: {:?}", val_buf);
-                debug_assert_eq!(val_buf.len(), 8, "Sanity check parsing value");
 
-                Ok(Value::Set(key_buf, val_buf))
+                Ok(Value::Set(request_id, key_buf, flags, val_buf))
             }
-            "get " => {
+            b"get " => {
                 log::trace!("Get");
 
                 let mut key_buf = Vec::with_capacity(65);
                 self.read_until(' ' as u8, &mut key_buf);
                 key_buf.pop();
+                key_buf.pop(); // \r ?
                 trace!("got key: {:?}", key_buf);
-                debug_assert_eq!(key_buf.len(), 64, "Sanity check parsing key");
+                //debug_assert_eq!(key_buf.len(), 64, "Sanity check parsing key");
 
                 self.skip_until_newline();
 
-                Ok(Value::Get(key_buf))
+                Ok(Value::Get(request_id, key_buf))
             }
             _ => return Err(DecodeError::InvalidOpCode),
         }

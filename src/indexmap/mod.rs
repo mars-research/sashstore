@@ -11,10 +11,10 @@ pub mod iter;
 use self::hash::*;
 use self::iter::*;
 
-use std::borrow::Borrow;
-use std::cell::{Ref, RefCell, RefMut};
-use std::fmt;
-use std::hash::{BuildHasher, Hash};
+use core::borrow::Borrow;
+use core::cell::{Ref, RefCell, RefMut};
+use core::fmt;
+use core::hash::{BuildHasher, Hash};
 
 const DEFAULT_MAX_LOAD: f64 = 0.7;
 const DEFAULT_GROWTH_POLICY: f64 = 2.0;

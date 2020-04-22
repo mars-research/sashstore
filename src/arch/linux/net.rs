@@ -41,7 +41,7 @@ pub fn server_loop(core: CpuId, tid: ThreadId, config: &CmdArgs, kvstore: &mut S
             trace!("event = {:?}", event);
 
             if event.readiness().is_readable() {
-                const MSG_MAX_LEN: usize = 128;
+                const MSG_MAX_LEN: usize = 1500;
                 let mut recv_buf: Vec<u8> = Vec::with_capacity(MSG_MAX_LEN);
                 recv_buf.resize(MSG_MAX_LEN, 0);
 
@@ -64,6 +64,7 @@ pub fn server_loop(core: CpuId, tid: ThreadId, config: &CmdArgs, kvstore: &mut S
                 );
                 // Throw away zeroes at the end of the buffer:
                 recv_buf.truncate(msg.bytes);
+                let sender: socket::SockAddr = msg.address.unwrap();
 
                 trace!(
                     "recv_buf = {:?}",
@@ -71,11 +72,15 @@ pub fn server_loop(core: CpuId, tid: ThreadId, config: &CmdArgs, kvstore: &mut S
                 );
 
                 let send_buf = kvstore.handle_network_request(recv_buf);
-                let sent =
-                    match socket::send(raw_fd, &send_buf.as_slice(), socket::MsgFlags::empty()) {
-                        Ok(bytes_sent) => bytes_sent,
-                        Err(e) => panic!("Unexpected error during socket::send {:?}", e),
-                    };
+                let sent = match socket::sendto(
+                    raw_fd,
+                    &send_buf.as_slice(),
+                    &sender,
+                    socket::MsgFlags::empty(),
+                ) {
+                    Ok(bytes_sent) => bytes_sent,
+                    Err(e) => panic!("Unexpected error during socket::send {:?}", e),
+                };
                 assert!(sent > 0);
             }
 

@@ -21,7 +21,8 @@ use arch::PlatformSupport;
 use memb::{serialize::encode_with_buf, serialize::Decoder, Value};
 
 pub struct SashStore {
-    map: indexmap::Index<Vec<u8>, Vec<u8>>,
+    /// Maps key -> (flags, value)
+    map: indexmap::Index<Vec<u8>, (u32, Vec<u8>)>,
 }
 
 impl SashStore {
@@ -38,7 +39,7 @@ impl SashStore {
         let mut decoder = Decoder::new(reader);
         let response = match decoder.decode() {
             Ok(value) => {
-                trace!("Received value={:#?}", value);
+                trace!("Received value={:?}", value);
                 self.execute_cmd(value)
             }
             Err(e) => panic!("Couldn't parse request {:?}", e),
@@ -49,18 +50,21 @@ impl SashStore {
     /// Execute a parsed command against our KV store
     fn execute_cmd(&mut self, cmd: Value) -> Value {
         match cmd {
-            Value::Get(key) => {
+            Value::Get(req_id, key) => {
                 trace!("Execute .get for {:?}", key);
                 let r = self.map.get(&key);
                 match r {
-                    Some(val) => Value::Value(key, val.to_vec(), vec![0x0, 0x0, 0x0, 0x0]),
-                    None => Value::NoReply,
+                    Some(value) => Value::Value(req_id, key, value.0, value.1.to_vec()),
+                    None => {
+                        panic!("didn't find value for key {:?}", key);
+                        Value::NoReply
+                    }
                 }
             }
-            Value::Set(key, value) => {
+            Value::Set(req_id, key, flags, value) => {
                 trace!("Set for {:?} {:?}", key, value);
-                self.map.insert(key, value);
-                Value::Stored
+                self.map.insert(key, (flags, value));
+                Value::Stored(req_id)
             }
             _ => unreachable!(),
         }
