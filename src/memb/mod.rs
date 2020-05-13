@@ -7,6 +7,8 @@
 
 #![allow(unused)] // For now
 
+use alloc::vec::Vec;
+
 pub mod serialize;
 
 /// Data format description for a parsed packet

@@ -13,8 +13,12 @@ use self::iter::*;
 
 use core::borrow::Borrow;
 use core::cell::{Ref, RefCell, RefMut};
-use core::fmt;
 use core::hash::{BuildHasher, Hash};
+use core::fmt;
+use core::mem;
+
+use alloc::vec::Vec;
+use alloc::format;
 
 const DEFAULT_MAX_LOAD: f64 = 0.7;
 const DEFAULT_GROWTH_POLICY: f64 = 2.0;
@@ -594,7 +598,7 @@ where
 
         match self.find(hash, |p| key.eq(&p.0)) {
             (Some(_), Some(i)) => {
-                std::mem::replace(&mut self.table[i], Bucket::Some(RefCell::new((key, value))))
+                mem::replace(&mut self.table[i], Bucket::Some(RefCell::new((key, value))))
             }
             (None, Some(i)) => {
                 self.table[i] = Bucket::Some(RefCell::new((key, value)));
