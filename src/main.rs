@@ -8,8 +8,6 @@ extern crate alloc;
 #[cfg(test)]
 extern crate test;
 
-use alloc::collections::VecDeque;
-
 use log::trace;
 
 mod arch;
@@ -42,8 +40,9 @@ impl SashStore {
 
     /// Execute the content of a packet buffer in our KV store.
     pub fn handle_network_request(&mut self, buf: Vec<u8>) -> Vec<u8> {
-        let reader = VecDeque::from(buf);
-        let mut decoder = Decoder::new(reader);
+        //let reader = VecDeque::from(buf);
+        //println!("<= req_buf {:x?} {}", buf.as_ptr(), buf.len());
+        let mut decoder = Decoder::new(buf);
         let response = match decoder.decode() {
             Ok(value) => {
                 trace!("Received value={:?}", value);
@@ -51,7 +50,9 @@ impl SashStore {
             }
             Err(e) => panic!("Couldn't parse request {:?}", e),
         };
-        encode_with_buf(decoder.into(), &response)
+        let resp_buf = encode_with_buf(decoder.reader, &response);
+        //println!("=> resp_buf {:x?} {}", resp_buf.as_ptr(), resp_buf.len());
+        resp_buf
     }
 
     /// Execute a parsed command against our KV store

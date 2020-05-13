@@ -115,6 +115,7 @@ impl PlatformSupport for Platform {
         F: FnOnce() -> ThreadId,
         F: Send + 'static,
     {
+        println!("Spawing thread on core {}", on_core);
         let handler = std::thread::spawn(move || {
             pin_thread(on_core);
             f();
