@@ -260,8 +260,6 @@ impl Decoder {
                     key_buf.pop();
                 }
 
-                trace!("got key: {:?}", String::from_utf8(key_buf.clone()));
-
                 let mut flags = 0u32;
                 {
                     let flag_buf = {
@@ -287,8 +285,6 @@ impl Decoder {
 
                 let mut val_buf = self.read_until('\r' as u8).to_vec();
                 val_buf.pop();
-
-                trace!("got val: {:?}", String::from_utf8(val_buf.clone()));
 
                 Ok(Value::Set(request_id, key_buf, flags, val_buf))
             }
