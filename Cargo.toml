@@ -7,11 +7,6 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 
-[dependencies.lru]
-path = "./lru-rs"
-default-features = false
-features = ["nightly", "hashbrown"]
-
 # Add debug symbols on the release build so that we can debug performance issues
 [profile.release]
 debug = true

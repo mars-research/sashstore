@@ -1,3 +1,0 @@
-[submodule "lru-rs"]
-	path = lru-rs
-	url = https://github.com/zhaofengli/lru-rs

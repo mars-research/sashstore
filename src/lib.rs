@@ -14,22 +14,21 @@ use alloc::vec::Vec;
 use log::trace;
 
 mod indexmap;
+
 mod memb;
 
 use memb::{serialize::buf_encode, serialize::Decoder, ClientValue, ServerValue};
-use lru::LruCache;
 
 pub struct SashStore {
     /// Maps key -> (flags, value)
-    map: LruCache<Vec<u8>, (u32, Vec<u8>)>,
+    map: indexmap::Index<Vec<u8>, (u32, Vec<u8>)>,
 }
 
 impl SashStore {
     /// Initialize a new SashStore instance.
     pub fn with_capacity(cap: usize) -> Self {
         SashStore {
-            // map: indexmap::Index::with_capacity(cap),
-            map: LruCache::new(cap),
+            map: indexmap::Index::with_capacity(cap),
         }
     }
 
@@ -79,7 +78,7 @@ impl SashStore {
             ClientValue::Set(req_id, key, flags, value) => {
                 trace!("Set for {:?} {:?}", key, value);
                 if key.len() <= 250 {
-                    self.map.put(key.to_vec(), (flags, value.to_vec()));
+                    self.map.insert(key.to_vec(), (flags, value.to_vec()));
                     ServerValue::Stored(req_id)
                 } else {
                     ServerValue::NotStored(req_id)
