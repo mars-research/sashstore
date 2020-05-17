@@ -27,7 +27,8 @@ pub enum ClientValue<'req> {
 /// Data format description for a packet to be sent out
 pub enum ServerValue<'kv> {
     // (seq, key, key_len, val_ref)
-    Value(u16, [u8; 250], usize, Ref<'kv, (u32, Vec<u8>)>),
+    // Value(u16, [u8; 250], usize, Ref<'kv, (u32, Vec<u8>)>),
+    Value(u16, [u8; 250], usize, &'kv (u32, Vec<u8>)),
     Stored(u16),
     NotStored(u16),
     NoReply,
