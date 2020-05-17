@@ -17,7 +17,7 @@ mod indexmap;
 
 mod memb;
 
-use memb::{serialize::encode_with_buf, serialize::Decoder, Value};
+use memb::{serialize::buf_encode, serialize::Decoder, ClientValue, ServerValue};
 
 pub struct SashStore {
     /// Maps key -> (flags, value)
@@ -39,34 +39,50 @@ impl SashStore {
         let mut decoder = Decoder::new(buf);
         let response = match decoder.decode() {
             Ok(value) => {
-                trace!("Received value={:?}", value);
+                // trace!("Received value={:?}", value);
                 self.execute_cmd(value)
             }
             Err(e) => panic!("Couldn't parse request {:?}", e),
         };
-        let resp_buf = encode_with_buf(decoder.reader, &response);
+        let buf = decoder.destroy();
+        // buf_encode(&response, &mut buf);
         //println!("=> resp_buf {:x?} {}", resp_buf.as_ptr(), resp_buf.len());
-        resp_buf
+        buf
     }
 
     /// Execute a parsed command against our KV store
-    fn execute_cmd(&mut self, cmd: Value) -> Value {
+    fn execute_cmd<'req, 'kv>(&'kv mut self, cmd: ClientValue<'req>) -> ServerValue<'kv> {
         match cmd {
-            Value::Get(req_id, key) => {
+            ClientValue::Get(req_id, key) => {
                 trace!("Execute .get for {:?}", key);
-                let r = self.map.get(&key);
+                if key.len() > 250 {
+                    // Illegal key
+                    return ServerValue::NoReply;
+                }
+
+                let r = self.map.get(key);
                 match r {
-                    Some(value) => Value::Value(req_id, key, value.0, value.1.to_vec()),
+                    Some(value) => {
+                        // one copy here
+                        let mut copied_key: [u8; 250] = [0; 250];
+                        let copied_length = key.len();
+                        copied_key[0..copied_length].clone_from_slice(&key[0..copied_length]);
+                        ServerValue::Value(req_id, copied_key, copied_length, value)
+                    },
                     None => {
                         unreachable!("didn't find value for key {:?}", key);
-                        //Value::NoReply
+                        ServerValue::NoReply
                     }
                 }
             }
-            Value::Set(req_id, key, flags, value) => {
+            ClientValue::Set(req_id, key, flags, value) => {
                 trace!("Set for {:?} {:?}", key, value);
-                self.map.insert(key, (flags, value));
-                Value::Stored(req_id)
+                if key.len() <= 250 {
+                    self.map.insert(key.to_vec(), (flags, value.to_vec()));
+                    ServerValue::Stored(req_id)
+                } else {
+                    ServerValue::NotStored(req_id)
+                }
             }
             _ => unreachable!(),
         }
