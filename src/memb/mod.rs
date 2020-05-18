@@ -10,6 +10,9 @@
 use alloc::vec::Vec;
 use core::cell::Ref;
 
+use arrayvec::ArrayVec;
+use crate::{KVKey, KVVal};
+
 pub mod serialize;
 
 // Let's separate the vocabularies of client and server to make
@@ -26,8 +29,8 @@ pub enum ClientValue<'req> {
 
 /// Data format description for a packet to be sent out
 pub enum ServerValue<'kv> {
-    // (seq, key, key_len, val_ref)
-    Value(u16, [u8; 250], usize, Ref<'kv, (u32, Vec<u8>)>),
+    // (seq, key, val_ref)
+    Value(u16, KVKey, Ref<'kv, KVVal>),
     Stored(u16),
     NotStored(u16),
     NoReply,

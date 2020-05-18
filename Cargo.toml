@@ -7,6 +7,15 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 
+[dependencies.fnv]
+git = "https://github.com/servo/rust-fnv"
+default-features = false
+
+[dependencies.arrayvec]
+version = "0.5.1"
+default-features = false
+features = ["array-sizes-129-255"]
+
 # Add debug symbols on the release build so that we can debug performance issues
 [profile.release]
 debug = true

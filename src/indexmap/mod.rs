@@ -20,6 +20,8 @@ use core::mem;
 use alloc::vec::Vec;
 use alloc::format;
 
+use arrayvec::ArrayVec;
+
 const DEFAULT_MAX_LOAD: f64 = 0.7;
 const DEFAULT_GROWTH_POLICY: f64 = 2.0;
 const DEFAULT_PROBING: fn(usize, usize) -> usize = |hash, i| hash + i + i * i;

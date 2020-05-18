@@ -8,8 +8,11 @@ extern crate alloc;
 #[cfg(test)]
 extern crate test;
 
+use core::hash::{BuildHasher, BuildHasherDefault, Hash, Hasher};
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
+
+use arrayvec::ArrayVec;
 
 use log::trace;
 
@@ -18,17 +21,35 @@ mod indexmap;
 mod memb;
 
 use memb::{serialize::buf_encode, serialize::Decoder, ClientValue, ServerValue};
+use fnv::FnvHasher;
+
+type FnvHashFactory = BuildHasherDefault<FnvHasher>;
+
+pub type KVKey = ArrayVec<[u8; 250]>;
+pub type KVVal = (u32, ArrayVec<[u8; 1024]>);
 
 pub struct SashStore {
     /// Maps key -> (flags, value)
-    map: indexmap::Index<Vec<u8>, (u32, Vec<u8>)>,
+    map: indexmap::Index<KVKey, KVVal, FnvHashFactory>,
 }
 
 impl SashStore {
     /// Initialize a new SashStore instance.
-    pub fn with_capacity(cap: usize) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
+        const DEFAULT_MAX_LOAD: f64 = 0.7;
+        const DEFAULT_GROWTH_POLICY: f64 = 2.0;
+        const DEFAULT_PROBING: fn(usize, usize) -> usize = |hash, i| hash + i + i * i;
+        
         SashStore {
-            map: indexmap::Index::with_capacity(cap),
+            map: indexmap::Index::with_capacity_and_parameters(
+                capacity,
+                indexmap::Parameters {
+                    max_load: DEFAULT_MAX_LOAD,
+                    growth_policy: DEFAULT_GROWTH_POLICY,
+                    hasher_builder: Default::default(),
+                    probe: DEFAULT_PROBING,
+                },
+            )
         }
     }
 
@@ -64,25 +85,28 @@ impl SashStore {
                 match r {
                     Some(value) => {
                         // one copy here
-                        let mut copied_key: [u8; 250] = [0; 250];
-                        let copied_length = key.len();
-                        copied_key[0..copied_length].clone_from_slice(&key[0..copied_length]);
-                        ServerValue::Value(req_id, copied_key, copied_length, value)
+                        let mut key_vec = ArrayVec::new();
+                        key_vec.try_extend_from_slice(key).expect("Key too long");
+                        ServerValue::Value(req_id, key_vec, value)
                     },
                     None => {
                         unreachable!("didn't find value for key {:?}", key);
                         ServerValue::NoReply
-                    }
+                    },
                 }
             }
             ClientValue::Set(req_id, key, flags, value) => {
                 trace!("Set for {:?} {:?}", key, value);
                 if key.len() <= 250 {
-                    self.map.insert(key.to_vec(), (flags, value.to_vec()));
-                    ServerValue::Stored(req_id)
-                } else {
-                    ServerValue::NotStored(req_id)
+                    let mut key_vec = ArrayVec::new();
+                    let mut value_vec = ArrayVec::new();
+
+                    if key_vec.try_extend_from_slice(key).is_err() || value_vec.try_extend_from_slice(value).is_err() {
+                        self.map.insert(key_vec, (flags, value_vec));
+                        return ServerValue::Stored(req_id);
+                    }
                 }
+                return ServerValue::NotStored(req_id);
             }
             _ => unreachable!(),
         }

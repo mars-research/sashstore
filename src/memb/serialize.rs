@@ -57,7 +57,7 @@ pub fn buf_encode(value: &ServerValue, buf: &mut Vec<u8>) {
     buf.clear();
 
     match value {
-        ServerValue::Value(request_id, k, k_len, bundle) => {
+        ServerValue::Value(request_id, k, bundle) => {
             let flags = bundle.0;
             let v = &bundle.1;
 
@@ -67,7 +67,7 @@ pub fn buf_encode(value: &ServerValue, buf: &mut Vec<u8>) {
             buf.extend_from_slice(&u16::to_be_bytes(1)); // #datagram
             buf.extend_from_slice(&u16::to_be_bytes(0)); // reserved
             buf.extend_from_slice(b"VALUE ");
-            buf.extend_from_slice(&k[0..*k_len]);
+            buf.extend_from_slice(&k);
             buf.extend_from_slice(" ".as_bytes());
             buf.extend_from_slice(format!(" {}", flags).as_bytes());
             buf.extend_from_slice(format!(" {}\r\n", v.len()).as_bytes());
