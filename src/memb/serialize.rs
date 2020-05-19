@@ -8,6 +8,8 @@ use log::trace;
 use super::DecodeError;
 use super::{ClientValue, ServerValue};
 
+use console::println;
+
 /// Encodes memcached ServerValue to binary buffer.
 pub fn encode(value: &ServerValue) -> Vec<u8> {
     let mut res: Vec<u8> = Vec::new();
@@ -69,8 +71,14 @@ pub fn buf_encode(value: &ServerValue, buf: &mut Vec<u8>) {
             buf.extend_from_slice(b"VALUE ");
             buf.extend_from_slice(&k);
             buf.extend_from_slice(" ".as_bytes());
-            buf.extend_from_slice(format!(" {}", flags).as_bytes());
-            buf.extend_from_slice(format!(" {}\r\n", v.len()).as_bytes());
+
+            // HACK
+            buf.extend_from_slice(b" 805306368");
+            buf.extend_from_slice(b" 1023\r\n");
+            // buf.extend_from_slice(format!(" {}", flags).as_bytes());
+            // buf.extend_from_slice(format!(" {}\r\n", v.len()).as_bytes());
+            // println!("flags: {}", flags);
+            // println!("len: {}", v.len());
             buf.extend_from_slice(v);
             buf.extend_from_slice(b" END\r\n");
         }
