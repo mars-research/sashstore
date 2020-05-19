@@ -6,6 +6,10 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
+b2histogram = "1.0.0"
+console = { path = "../console", version = "0.1.0" }
+syscalls = { path = "../../interfaces/syscalls", version = "0.1.0" }
+libsyscalls = { path = "../libsyscalls", version = "0.1.0" }
 
 [dependencies.fnv]
 git = "https://github.com/servo/rust-fnv"
@@ -15,6 +19,10 @@ default-features = false
 version = "0.5.1"
 default-features = false
 features = ["array-sizes-129-255"]
+
+[dependencies.lazy_static]
+version = "1.3.0"
+features = ["spin_no_std"]
 
 # Add debug symbols on the release build so that we can debug performance issues
 [profile.release]

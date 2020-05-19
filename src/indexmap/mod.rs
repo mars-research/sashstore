@@ -22,6 +22,60 @@ use alloc::format;
 
 use arrayvec::ArrayVec;
 
+use console::println;
+
+use b2histogram::Base2Histogram;
+
+static mut TSC_INSERT_HISTOGRAM: Option<Base2Histogram> = None;
+static mut TSC_INSERT_TOTAL: u64 = 0;
+
+static mut TSC_GET_HISTOGRAM: Option<Base2Histogram> = None;
+static mut TSC_GET_TOTAL: u64 = 0;
+
+static mut TSC_HASH_HISTOGRAM: Option<Base2Histogram> = None;
+static mut TSC_HASH_TOTAL: u64 = 0;
+
+static mut TSC_FIND_HISTOGRAM: Option<Base2Histogram> = None;
+static mut TSC_FIND_TOTAL: u64 = 0;
+
+macro_rules! record_hist {
+    ($hist: ident, $total: ident, $val: expr) => {
+        unsafe {
+            if let None = $hist {
+                $hist = Some(Base2Histogram::new());
+            }
+
+            let hist = $hist.as_mut().unwrap();
+            hist.record($val);
+            $total += $val;
+        }
+    };
+}
+
+macro_rules! print_stat {
+    ($hist: ident, $total: ident) => {
+        unsafe {
+            println!("{}", core::stringify!($hist));
+
+            let mut count = 0;
+
+            for bucket in $hist.as_ref().unwrap().iter().filter(|b| b.count > 0) {
+                count += bucket.count;
+                println!("({:5}, {:5}): {}", bucket.start, bucket.end, bucket.count);
+            }
+
+            println!("Average: {}", $total / count);
+        }
+    };
+}
+
+pub fn print_stats() {
+    print_stat!(TSC_INSERT_HISTOGRAM, TSC_INSERT_TOTAL);
+    print_stat!(TSC_GET_HISTOGRAM, TSC_GET_TOTAL);
+    print_stat!(TSC_HASH_HISTOGRAM, TSC_HASH_TOTAL);
+    print_stat!(TSC_FIND_HISTOGRAM, TSC_FIND_TOTAL);
+}
+
 const DEFAULT_MAX_LOAD: f64 = 0.7;
 const DEFAULT_GROWTH_POLICY: f64 = 2.0;
 const DEFAULT_PROBING: fn(usize, usize) -> usize = |hash, i| hash + i + i * i;
@@ -531,6 +585,7 @@ where
 
     /// Grows `Index` according to growth policy.
     fn grow(&mut self) {
+        println!("growing");
         let new_cap = (self.capacity as f64 * self.params.growth_policy) as usize;
         self.resize(new_cap);
     }
@@ -592,13 +647,23 @@ where
     /// assert_eq!(index.capacity(), 8);
     /// ```
     pub fn insert(&mut self, key: K, value: V) -> Bucket<K, V> {
+        let insert_start = unsafe { core::arch::x86_64::_rdtsc() };
+
+        let hash_start = unsafe { core::arch::x86_64::_rdtsc() };
         let hash = make_hash(&self.params.hasher_builder, &key) as usize;
+        let hash_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_HASH_HISTOGRAM, TSC_HASH_TOTAL, hash_end - hash_start);
 
         if self.load() >= self.params.max_load {
             self.grow();
         }
 
-        match self.find(hash, |p| key.eq(&p.0)) {
+        let find_start = unsafe { core::arch::x86_64::_rdtsc() };
+        let f = self.find(hash, |p| key.eq(&p.0));
+        let find_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_FIND_HISTOGRAM, TSC_FIND_TOTAL, find_end - find_start);
+
+        let r = match f {
             (Some(_), Some(i)) => {
                 mem::replace(&mut self.table[i], Bucket::Some(RefCell::new((key, value))))
             }
@@ -611,7 +676,12 @@ where
                 self.grow();
                 self.insert(key, value)
             }
-        }
+        };
+
+        let insert_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_INSERT_HISTOGRAM, TSC_INSERT_TOTAL, insert_end - insert_start);
+
+        r
     }
 
     // pub fn remove_entry<Q>(&mut self, key: &Q) -> Bucket<K, V> where K: Borrow<Q>, Q: Hash + Eq + ?Sized
@@ -649,10 +719,24 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
+        let get_start = unsafe { core::arch::x86_64::_rdtsc() };
+
+        let hash_start = unsafe { core::arch::x86_64::_rdtsc() };
         let hash = make_hash(self.hasher(), &key) as usize;
-        self.find(hash, |p| key.borrow().eq(p.0.borrow()))
+        let hash_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_HASH_HISTOGRAM, TSC_HASH_TOTAL, hash_end - hash_start);
+
+        let find_start = unsafe { core::arch::x86_64::_rdtsc() };
+        let r = self.find(hash, |p| key.borrow().eq(p.0.borrow()))
             .0
-            .map(|pair| Ref::map(pair.borrow(), |p| &p.1))
+            .map(|pair| Ref::map(pair.borrow(), |p| &p.1));
+        let find_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_FIND_HISTOGRAM, TSC_FIND_TOTAL, find_end - find_start);
+
+        let get_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_GET_HISTOGRAM, TSC_GET_TOTAL, get_end - get_start);
+
+        r
     }
 
     /// Returns a mutable reference to the value associated with the specified key
@@ -678,10 +762,24 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
+        let get_start = unsafe { core::arch::x86_64::_rdtsc() };
+
+        let hash_start = unsafe { core::arch::x86_64::_rdtsc() };
         let hash = make_hash(self.hasher(), &key) as usize;
-        self.find(hash, |p| key.eq(p.0.borrow()))
+        let hash_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_HASH_HISTOGRAM, TSC_HASH_TOTAL, hash_end - hash_start);
+
+        let find_start = unsafe { core::arch::x86_64::_rdtsc() };
+        let r = self.find(hash, |p| key.borrow().eq(p.0.borrow()))
             .0
-            .map(|pair| RefMut::map(pair.borrow_mut(), |p| &mut p.1))
+            .map(|pair| RefMut::map(pair.borrow_mut(), |p| &mut p.1));
+        let find_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_FIND_HISTOGRAM, TSC_FIND_TOTAL, find_end - find_start);
+
+        let get_end = unsafe { core::arch::x86_64::_rdtsc() };
+        record_hist!(TSC_GET_HISTOGRAM, TSC_GET_TOTAL, get_end - get_start);
+
+        r
     }
 
     /// Returns a reference to the key-value pair associated with the specified key

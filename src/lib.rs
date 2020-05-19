@@ -1,5 +1,5 @@
 //! A safe key--value store (sashstore)
-#![forbid(unsafe_code)]
+//#![forbid(unsafe_code)]
 #![feature(test)]
 #![no_std]
 
@@ -8,6 +8,9 @@ extern crate alloc;
 #[cfg(test)]
 extern crate test;
 
+#[macro_use]
+extern crate lazy_static;
+
 use core::hash::{BuildHasher, BuildHasherDefault, Hash, Hasher};
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
@@ -15,8 +18,9 @@ use alloc::vec::Vec;
 use arrayvec::ArrayVec;
 
 use log::trace;
+use console::println;
 
-mod indexmap;
+pub mod indexmap;
 
 mod memb;
 
@@ -65,8 +69,8 @@ impl SashStore {
             }
             Err(e) => panic!("Couldn't parse request {:?}", e),
         };
-        let buf = decoder.destroy();
-        // buf_encode(&response, &mut buf);
+        let mut buf = decoder.destroy();
+        buf_encode(&response, &mut buf);
         //println!("=> resp_buf {:x?} {}", resp_buf.as_ptr(), resp_buf.len());
         buf
     }
@@ -76,37 +80,54 @@ impl SashStore {
         match cmd {
             ClientValue::Get(req_id, key) => {
                 trace!("Execute .get for {:?}", key);
+
                 if key.len() > 250 {
                     // Illegal key
+                    panic!("key too long");
                     return ServerValue::NoReply;
                 }
 
                 let r = self.map.get(key);
+                let mut ret;
                 match r {
                     Some(value) => {
                         // one copy here
                         let mut key_vec = ArrayVec::new();
                         key_vec.try_extend_from_slice(key).expect("Key too long");
-                        ServerValue::Value(req_id, key_vec, value)
+                        ret = ServerValue::Value(req_id, key_vec, value)
                     },
                     None => {
                         unreachable!("didn't find value for key {:?}", key);
-                        ServerValue::NoReply
+                        ret = ServerValue::NoReply
                     },
                 }
+
+                let end = unsafe { core::arch::x86_64::_rdtsc() };
+                // println!("get took {:?}", end - start);
+
+                ret
             }
             ClientValue::Set(req_id, key, flags, value) => {
                 trace!("Set for {:?} {:?}", key, value);
-                if key.len() <= 250 {
-                    let mut key_vec = ArrayVec::new();
-                    let mut value_vec = ArrayVec::new();
+                let start = unsafe { core::arch::x86_64::_rdtsc() };
 
-                    if key_vec.try_extend_from_slice(key).is_err() || value_vec.try_extend_from_slice(value).is_err() {
-                        self.map.insert(key_vec, (flags, value_vec));
-                        return ServerValue::Stored(req_id);
-                    }
-                }
-                return ServerValue::NotStored(req_id);
+                let r = if key.len() <= 250 {
+                    let mut key_vec: ArrayVec<[u8; 250]> = ArrayVec::new();
+                    let mut value_vec: ArrayVec<[u8; 1024]> = ArrayVec::new();
+
+                    key_vec.try_extend_from_slice(&key).expect("rua");
+                    value_vec.try_extend_from_slice(&value).expect("rua");
+
+                    self.map.insert(key_vec, (flags, value_vec));
+                    ServerValue::Stored(req_id)
+                } else {
+                    ServerValue::NotStored(req_id)
+                };
+
+                let end = unsafe { core::arch::x86_64::_rdtsc() };
+                // println!("set took {:?}", end - start);
+
+                r
             }
             _ => unreachable!(),
         }
