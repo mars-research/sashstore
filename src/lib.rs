@@ -29,7 +29,7 @@ use fnv::FnvHasher;
 
 type FnvHashFactory = BuildHasherDefault<FnvHasher>;
 
-pub type KVKey = ArrayVec<[u8; 250]>;
+pub type KVKey = ArrayVec<[u8; 64]>;
 pub type KVVal = (u32, ArrayVec<[u8; 1024]>);
 
 pub struct SashStore {
@@ -57,6 +57,10 @@ impl SashStore {
         }
     }
 
+    pub fn print_stats(&self) {
+        println!("capacity={}, len={}", self.map.capacity(), self.map.len());
+    }
+
     /// Execute the content of a packet buffer in our KV store.
     pub fn handle_network_request(&mut self, buf: Vec<u8>) -> Vec<u8> {
         //let reader = VecDeque::from(buf);
@@ -81,7 +85,7 @@ impl SashStore {
             ClientValue::Get(req_id, key) => {
                 trace!("Execute .get for {:?}", key);
 
-                if key.len() > 250 {
+                if key.len() > 64 {
                     // Illegal key
                     panic!("key too long");
                     return ServerValue::NoReply;
@@ -112,7 +116,7 @@ impl SashStore {
                 let start = unsafe { core::arch::x86_64::_rdtsc() };
 
                 let r = if key.len() <= 250 {
-                    let mut key_vec: ArrayVec<[u8; 250]> = ArrayVec::new();
+                    let mut key_vec: ArrayVec<[u8; 64]> = ArrayVec::new();
                     let mut value_vec: ArrayVec<[u8; 1024]> = ArrayVec::new();
 
                     key_vec.try_extend_from_slice(&key).expect("rua");
