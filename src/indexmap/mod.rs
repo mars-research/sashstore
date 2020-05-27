@@ -733,31 +733,37 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        /*
+        #[cfg(feature = "rdtsc")]
         let get_start = unsafe { core::arch::x86_64::_rdtsc() };
 
+        #[cfg(feature = "rdtsc")]
         let hash_start = unsafe { core::arch::x86_64::_rdtsc() };
-        */
+
         let hash = make_hash(self.hasher(), &key) as usize;
-        /*
+
+        #[cfg(feature = "rdtsc")]
         let hash_end = unsafe { core::arch::x86_64::_rdtsc() };
-        */
+
+        #[cfg(feature = "rdtsc")]
         record_hist!(TSC_HASH_HISTOGRAM, TSC_HASH_TOTAL, hash_end - hash_start);
 
-        /*
+        #[cfg(feature = "rdtsc")]
         let find_start = unsafe { core::arch::x86_64::_rdtsc() };
-        */
+
         let r = self.find(hash, |p| key.borrow().eq(p.0.borrow()))
             .0
             .map(|pair| Ref::map(pair.borrow(), |p| &p.1));
-        /*
+
+        #[cfg(feature = "rdtsc")]
         let find_end = unsafe { core::arch::x86_64::_rdtsc() };
-        */
+
+        #[cfg(feature = "rdtsc")]
         record_hist!(TSC_FIND_HISTOGRAM, TSC_FIND_TOTAL, find_end - find_start);
 
-        /*
+        #[cfg(feature = "rdtsc")]
         let get_end = unsafe { core::arch::x86_64::_rdtsc() };
-        */
+
+        #[cfg(feature = "rdtsc")]
         record_hist!(TSC_GET_HISTOGRAM, TSC_GET_TOTAL, get_end - get_start);
 
         r
