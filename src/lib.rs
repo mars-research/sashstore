@@ -35,7 +35,7 @@ use b2histogram::Base2Histogram;
 type FnvHashFactory = BuildHasherDefault<FnvHasher>;
 
 pub type KVKey = ArrayVec<[u8; 64]>;
-pub type KVVal = (u32, ArrayVec<[u8; 1024]>);
+pub type KVVal = (u32, ArrayVec<[u8; 64]>);
 
 static mut FAKE_VAL: Option<RefCell<KVVal>> = None;
 
@@ -87,7 +87,7 @@ impl SashStore {
 
         unsafe {
             let mut vec = ArrayVec::new();
-            vec.try_extend_from_slice(&[0u8; 1024]);
+            vec.try_extend_from_slice(&[0u8; 64]);
 
             FAKE_VAL = Some(RefCell::new((805306368, vec)));
         }
