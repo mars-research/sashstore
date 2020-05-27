@@ -64,8 +64,8 @@ pub fn buf_encode(value: &ServerValue, buf: &mut Vec<u8>) {
             let v = &bundle.1;
 
             // Construct UDP header
-            buf.extend_from_slice(&u16::to_be_bytes(*request_id));
-            buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
+            buf.extend_from_slice(&u32::to_be_bytes(*request_id));
+            //buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
             buf.extend_from_slice(&u16::to_be_bytes(1)); // #datagram
             buf.extend_from_slice(&u16::to_be_bytes(0)); // reserved
             buf.extend_from_slice(b"VALUE ");
@@ -83,15 +83,15 @@ pub fn buf_encode(value: &ServerValue, buf: &mut Vec<u8>) {
             buf.extend_from_slice(b" END\r\n");
         }
         ServerValue::Stored(request_id) => {
-            buf.extend_from_slice(&u16::to_be_bytes(*request_id));
-            buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
+            buf.extend_from_slice(&u32::to_be_bytes(*request_id));
+            //buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
             buf.extend_from_slice(&u16::to_be_bytes(1)); // #datagram
             buf.extend_from_slice(&u16::to_be_bytes(0)); // reserved
             buf.extend_from_slice(b"STORED\r\n")
         }
         ServerValue::NotStored(request_id) => {
-            buf.extend_from_slice(&u16::to_be_bytes(*request_id));
-            buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
+            buf.extend_from_slice(&u32::to_be_bytes(*request_id));
+            //buf.extend_from_slice(&u16::to_be_bytes(0)); // seq number
             buf.extend_from_slice(&u16::to_be_bytes(1)); // #datagram
             buf.extend_from_slice(&u16::to_be_bytes(0)); // reserved
             buf.extend_from_slice(b"NOT_STORED\r\n")
@@ -234,8 +234,13 @@ impl Decoder {
         let buf = [
             self.reader[0],
             self.reader[1],
+
+            self.reader[2],
+            self.reader[3],
         ];
-        let request_id = u16::from_be_bytes(buf);
+
+        // HACK: We want 4 bytes for req_id
+        let request_id = u32::from_be_bytes(buf);
         // 2-3 Sequence number
         let buf = [
             self.reader[2],

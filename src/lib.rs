@@ -34,8 +34,9 @@ use b2histogram::Base2Histogram;
 
 type FnvHashFactory = BuildHasherDefault<FnvHasher>;
 
-pub type KVKey = ArrayVec<[u8; 64]>;
-pub type KVVal = (u32, ArrayVec<[u8; 64]>);
+pub type KVKey = ArrayVec<[u8; 8]>;
+pub type KVal =  ArrayVec<[u8; 8]>;
+pub type KVVal = (u32, KVal);
 
 static mut FAKE_VAL: Option<RefCell<KVVal>> = None;
 
@@ -190,13 +191,14 @@ impl SashStore {
                 let start = unsafe { core::arch::x86_64::_rdtsc() };
 
                 let r = if key.len() <= 250 {
-                    let mut key_vec: ArrayVec<[u8; 64]> = ArrayVec::new();
-                    let mut value_vec: ArrayVec<[u8; 1024]> = ArrayVec::new();
+                    let mut key_vec: KVKey = ArrayVec::new();
+                    let mut value_vec: KVal = ArrayVec::new();
 
                     key_vec.try_extend_from_slice(&key).expect("rua");
                     value_vec.try_extend_from_slice(&value).expect("rua");
 
                     self.map.insert(key_vec, (flags, value_vec));
+                    //println!("set for {:?} {:?}", key, value);
                     ServerValue::Stored(req_id)
                 } else {
                     ServerValue::NotStored(req_id)

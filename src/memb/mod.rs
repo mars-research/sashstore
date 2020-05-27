@@ -23,16 +23,16 @@ pub mod serialize;
 /// Data format description for a parsed packet from the client
 #[derive(Debug)]
 pub enum ClientValue<'req> {
-    Get(u16, &'req [u8]),
-    Set(u16, &'req [u8], u32, &'req [u8]),
+    Get(u32, &'req [u8]),
+    Set(u32, &'req [u8], u32, &'req [u8]),
 }
 
 /// Data format description for a packet to be sent out
 pub enum ServerValue<'kv> {
     // (seq, key, val_ref)
-    Value(u16, KVKey, Ref<'kv, KVVal>),
-    Stored(u16),
-    NotStored(u16),
+    Value(u32, KVKey, Ref<'kv, KVVal>),
+    Stored(u32),
+    NotStored(u32),
     NoReply,
 }
 
