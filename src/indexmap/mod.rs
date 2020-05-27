@@ -38,8 +38,11 @@ static mut TSC_HASH_TOTAL: u64 = 0;
 static mut TSC_FIND_HISTOGRAM: Option<Base2Histogram> = None;
 static mut TSC_FIND_TOTAL: u64 = 0;
 
+static mut REPROBE_COUNT: usize = 0;
+
 macro_rules! record_hist {
     ($hist: ident, $total: ident, $val: expr) => {
+        /*
         unsafe {
             if let None = $hist {
                 $hist = Some(Base2Histogram::new());
@@ -49,6 +52,7 @@ macro_rules! record_hist {
             hist.record($val);
             $total += $val;
         }
+        */
     };
 }
 
@@ -70,6 +74,7 @@ macro_rules! print_stat {
 }
 
 pub fn print_stats() {
+    println!("Reprobes: {}", unsafe { REPROBE_COUNT });
     print_stat!(TSC_INSERT_HISTOGRAM, TSC_INSERT_TOTAL);
     print_stat!(TSC_GET_HISTOGRAM, TSC_GET_TOTAL);
     print_stat!(TSC_HASH_HISTOGRAM, TSC_HASH_TOTAL);
@@ -593,12 +598,19 @@ where
     /// Searches for an entry according to specified hash and discriminating closure.
     ///
     /// See alias definition of `Find<'a, K, V>` at the top of this file for more details.
+    #[inline]
     fn find<F>(&self, hash: usize, f: F) -> Find<K, V>
     where
         F: Fn(Ref<(K, V)>) -> bool,
     {
         for i in 0..self.capacity {
-            let probe = (self.params.probe)(hash, i) % self.capacity;
+            // let probe = (self.params.probe)(hash, i) % self.capacity;
+            // HACK
+            let probe = (hash + i + i * i) % (1 << 21);
+
+            if i > 0 {
+                unsafe { REPROBE_COUNT += 1; }
+            }
 
             match &self.table[probe] {
                 Some(pair) if f(pair.borrow()) => return (Some(pair), Some(probe)), // found matching bucket
@@ -646,6 +658,7 @@ where
     /// assert_eq!(index.len(), 4);
     /// assert_eq!(index.capacity(), 8);
     /// ```
+    #[inline]
     pub fn insert(&mut self, key: K, value: V) -> Bucket<K, V> {
         let insert_start = unsafe { core::arch::x86_64::_rdtsc() };
 
@@ -714,30 +727,68 @@ where
     ///
     /// assert_eq!(*index.get("salutation").unwrap(), "Hello, world!");
     /// ```
+    #[inline]
     pub fn get<Q>(&self, key: &Q) -> Option<Ref<V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
+        /*
         let get_start = unsafe { core::arch::x86_64::_rdtsc() };
 
         let hash_start = unsafe { core::arch::x86_64::_rdtsc() };
+        */
         let hash = make_hash(self.hasher(), &key) as usize;
+        /*
         let hash_end = unsafe { core::arch::x86_64::_rdtsc() };
+        */
         record_hist!(TSC_HASH_HISTOGRAM, TSC_HASH_TOTAL, hash_end - hash_start);
 
+        /*
         let find_start = unsafe { core::arch::x86_64::_rdtsc() };
+        */
         let r = self.find(hash, |p| key.borrow().eq(p.0.borrow()))
             .0
             .map(|pair| Ref::map(pair.borrow(), |p| &p.1));
+        /*
         let find_end = unsafe { core::arch::x86_64::_rdtsc() };
+        */
         record_hist!(TSC_FIND_HISTOGRAM, TSC_FIND_TOTAL, find_end - find_start);
 
+        /*
         let get_end = unsafe { core::arch::x86_64::_rdtsc() };
+        */
         record_hist!(TSC_GET_HISTOGRAM, TSC_GET_TOTAL, get_end - get_start);
 
         r
     }
+
+    /*
+    #[inline]
+    pub fn get_hash(&self, hash: usize) -> Option<Ref<V>> {
+        /*
+        let get_start = unsafe { core::arch::x86_64::_rdtsc() };
+        */
+
+        /*
+        let find_start = unsafe { core::arch::x86_64::_rdtsc() };
+        */
+        let r = self.find(hash, |p| hash == p.0.borrow())
+            .0
+            .map(|pair| Ref::map(pair.borrow(), |p| &p.1));
+        /*
+        let find_end = unsafe { core::arch::x86_64::_rdtsc() };
+        */
+        record_hist!(TSC_FIND_HISTOGRAM, TSC_FIND_TOTAL, find_end - find_start);
+
+        /*
+        let get_end = unsafe { core::arch::x86_64::_rdtsc() };
+        */
+        record_hist!(TSC_GET_HISTOGRAM, TSC_GET_TOTAL, get_end - get_start);
+
+        r
+    }
+    */
 
     /// Returns a mutable reference to the value associated with the specified key
     /// if the lookup found a match, else it returns `None`.
@@ -757,6 +808,7 @@ where
     ///
     /// assert_eq!(*index.get("salutation").unwrap(), "Hello, rust!");
     /// ```
+    #[inline]
     pub fn get_mut<Q>(&self, key: &Q) -> Option<RefMut<V>>
     where
         K: Borrow<Q>,

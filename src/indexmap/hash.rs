@@ -20,6 +20,7 @@ use core::hash::{BuildHasher, Hash, Hasher};
 ///
 /// assert_eq!(hashed, 0xf1b59cbd9867ed1);
 /// ```
+#[inline]
 pub fn make_hash<K: Hash + ?Sized>(hasher_builder: &impl BuildHasher, value: &K) -> u64 {
     let mut hasher = hasher_builder.build_hasher();
     value.hash(&mut hasher);
