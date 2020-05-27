@@ -42,7 +42,6 @@ static mut REPROBE_COUNT: usize = 0;
 
 macro_rules! record_hist {
     ($hist: ident, $total: ident, $val: expr) => {
-        /*
         unsafe {
             if let None = $hist {
                 $hist = Some(Base2Histogram::new());
@@ -52,7 +51,6 @@ macro_rules! record_hist {
             hist.record($val);
             $total += $val;
         }
-        */
     };
 }
 
@@ -733,31 +731,21 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        /*
         let get_start = unsafe { core::arch::x86_64::_rdtsc() };
 
         let hash_start = unsafe { core::arch::x86_64::_rdtsc() };
-        */
         let hash = make_hash(self.hasher(), &key) as usize;
-        /*
         let hash_end = unsafe { core::arch::x86_64::_rdtsc() };
-        */
         record_hist!(TSC_HASH_HISTOGRAM, TSC_HASH_TOTAL, hash_end - hash_start);
 
-        /*
         let find_start = unsafe { core::arch::x86_64::_rdtsc() };
-        */
         let r = self.find(hash, |p| key.borrow().eq(p.0.borrow()))
             .0
             .map(|pair| Ref::map(pair.borrow(), |p| &p.1));
-        /*
         let find_end = unsafe { core::arch::x86_64::_rdtsc() };
-        */
         record_hist!(TSC_FIND_HISTOGRAM, TSC_FIND_TOTAL, find_end - find_start);
 
-        /*
         let get_end = unsafe { core::arch::x86_64::_rdtsc() };
-        */
         record_hist!(TSC_GET_HISTOGRAM, TSC_GET_TOTAL, get_end - get_start);
 
         r

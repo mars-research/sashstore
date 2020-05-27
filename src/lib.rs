@@ -35,7 +35,7 @@ use b2histogram::Base2Histogram;
 type FnvHashFactory = BuildHasherDefault<FnvHasher>;
 
 pub type KVKey = ArrayVec<[u8; 64]>;
-pub type KVVal = (u32, ArrayVec<[u8; 1024]>);
+pub type KVVal = (u32, ArrayVec<[u8; 64]>);
 
 static mut FAKE_VAL: Option<RefCell<KVVal>> = None;
 
@@ -84,13 +84,6 @@ impl SashStore {
         const DEFAULT_MAX_LOAD: f64 = 0.7;
         const DEFAULT_GROWTH_POLICY: f64 = 2.0;
         const DEFAULT_PROBING: fn(usize, usize) -> usize = |hash, i| hash + i + i * i;
-
-        unsafe {
-            let mut vec = ArrayVec::new();
-            vec.try_extend_from_slice(&[0u8; 1024]);
-
-            FAKE_VAL = Some(RefCell::new((805306368, vec)));
-        }
         
         SashStore {
             map: indexmap::Index::with_capacity_and_parameters(
@@ -138,14 +131,6 @@ impl SashStore {
     fn execute_cmd<'req, 'kv>(&'kv mut self, cmd: ClientValue<'req>) -> ServerValue<'kv> {
         match cmd {
             ClientValue::Get(req_id, key) => {
-                // HACK
-                /*
-                let mut key_vec = ArrayVec::new();
-                key_vec.try_extend_from_slice(key).expect("Key too long");
-                let val = unsafe { FAKE_VAL.as_ref().unwrap() }.borrow();
-                return ServerValue::Value(req_id, key_vec, val);
-                */
-
                 trace!("Execute .get for {:?}", key);
                 // println!("Get for {}", core::str::from_utf8(key).unwrap());
 
@@ -191,7 +176,7 @@ impl SashStore {
 
                 let r = if key.len() <= 250 {
                     let mut key_vec: ArrayVec<[u8; 64]> = ArrayVec::new();
-                    let mut value_vec: ArrayVec<[u8; 1024]> = ArrayVec::new();
+                    let mut value_vec: ArrayVec<[u8; 64]> = ArrayVec::new();
 
                     key_vec.try_extend_from_slice(&key).expect("rua");
                     value_vec.try_extend_from_slice(&value).expect("rua");
