@@ -1,6 +1,7 @@
 //! A safe key--value store (sashstore)
 //#![forbid(unsafe_code)]
-#![feature(test)]
+#![feature(test,
+           core_intrinsics)]
 #![no_std]
 
 extern crate alloc;

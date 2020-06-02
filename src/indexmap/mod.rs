@@ -604,9 +604,11 @@ where
         F: Fn(Ref<(K, V)>) -> bool,
     {
         for i in 0..self.capacity {
-            // let probe = (self.params.probe)(hash, i) % self.capacity;
-            // HACK
-            let probe = (hash + i + i * i) % (1 << 21);
+            let probe = if core::intrinsics::likely(self.capacity.is_power_of_two()) {
+                (self.params.probe)(hash, i) & (self.capacity - 1)
+            } else {
+                (self.params.probe)(hash, i) % self.capacity
+            };
 
             if i > 0 {
                 unsafe { REPROBE_COUNT += 1; }
